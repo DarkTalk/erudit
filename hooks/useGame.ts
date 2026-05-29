@@ -44,7 +44,8 @@ export function useGame(gameId: string, playerId: string | null) {
       const url = playerId
         ? `/api/games/${gameId}/state?playerId=${playerId}`
         : `/api/games/${gameId}/state`;
-      const res = await fetch(url, { cache: "no-store" });
+      const sep = url.includes("?") ? "&" : "?";
+      const res = await fetch(`${url}${sep}_=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? "Ошибка загрузки");
@@ -65,21 +66,6 @@ export function useGame(gameId: string, playerId: string | null) {
     const interval = setInterval(fetchState, intervalMs);
     return () => clearInterval(interval);
   }, [fetchState, state?.status]);
-
-  useEffect(() => {
-    if (!playerId || state?.status !== "playing") return;
-
-    const ping = () => {
-      fetch(`/api/games/${gameId}/join`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "presence", playerId }),
-      }).catch(() => {});
-    };
-    ping();
-    const interval = setInterval(ping, 30000);
-    return () => clearInterval(interval);
-  }, [gameId, playerId, state?.status]);
 
   const apiCall = async (url: string, body: Record<string, unknown>) => {
     const v = ++versionRef.current;

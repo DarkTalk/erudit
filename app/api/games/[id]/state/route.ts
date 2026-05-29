@@ -49,7 +49,7 @@ function sanitizeForLobby(state: GameState) {
       name: p.name,
       score: p.score,
       rackCount: p.rack.length,
-      connected: p.connected,
+      connected: true,
     })),
     board: state.board.map((row) =>
       row.map((cell) => ({

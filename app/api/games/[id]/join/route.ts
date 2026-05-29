@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
-import { joinGame, startGame, updatePlayerPresence } from "@/lib/game-logic";
-import { updateGame } from "@/lib/store";
+import { joinGame, startGame } from "@/lib/game-logic";
+import { loadGame, updateGame } from "@/lib/store";
 import type { JoinGameRequest } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
+
+const JOIN_RETRIES = 5;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export async function POST(
   request: Request,
@@ -16,22 +24,27 @@ export async function POST(
     switch (action) {
       case "join": {
         const { playerName } = body as JoinGameRequest;
-        let playerId = "";
-        await updateGame(id, (state) => {
-          const result = joinGame(state, playerName);
-          playerId = result.playerId;
-          return result.state;
-        });
-        return NextResponse.json({ playerId });
+
+        for (let attempt = 0; attempt < JOIN_RETRIES; attempt++) {
+          let playerId = "";
+          await updateGame(id, (state) => {
+            const result = joinGame(state, playerName);
+            playerId = result.playerId;
+            return result.state;
+          });
+
+          const verify = await loadGame(id);
+          if (verify?.players.some((p) => p.id === playerId)) {
+            return NextResponse.json({ playerId });
+          }
+
+          await sleep(80 * (attempt + 1));
+        }
+
+        throw new Error("Не удалось подключиться, попробуйте снова");
       }
       case "start": {
         await updateGame(id, (state) => startGame(state, body.playerId));
-        return NextResponse.json({ ok: true });
-      }
-      case "presence": {
-        await updateGame(id, (state) =>
-          updatePlayerPresence(state, body.playerId)
-        );
         return NextResponse.json({ ok: true });
       }
       default:
