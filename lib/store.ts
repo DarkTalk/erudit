@@ -1,4 +1,4 @@
-import { BlobPreconditionFailedError, del, get, put } from "@vercel/blob";
+import { del, get, put } from "@vercel/blob";
 import type { GameState } from "./types";
 
 const GAME_PREFIX = "games";
@@ -22,25 +22,15 @@ function hasBlobToken(): boolean {
   return !!process.env.BLOB_READ_WRITE_TOKEN;
 }
 
-async function readBlobGame(
-  id: string
-): Promise<{ state: GameState; etag: string | null } | null> {
+async function readBlobGame(id: string): Promise<GameState | null> {
   const result = await get(gamePath(id), { access: "private" });
   if (!result?.stream) return null;
 
   const text = await new Response(result.stream).text();
-  return {
-    state: JSON.parse(text) as GameState,
-    etag: result.blob.etag ?? null,
-  };
+  return JSON.parse(text) as GameState;
 }
 
-export async function saveGame(state: GameState): Promise<void> {
-  if (!hasBlobToken()) {
-    getMemoryStore().set(state.id, state);
-    return;
-  }
-
+async function writeBlobGame(state: GameState): Promise<void> {
   await put(gamePath(state.id), JSON.stringify(state), {
     access: "private",
     allowOverwrite: true,
@@ -49,13 +39,19 @@ export async function saveGame(state: GameState): Promise<void> {
   });
 }
 
+export async function saveGame(state: GameState): Promise<void> {
+  if (!hasBlobToken()) {
+    getMemoryStore().set(state.id, state);
+    return;
+  }
+  await writeBlobGame(state);
+}
+
 export async function loadGame(id: string): Promise<GameState | null> {
   if (!hasBlobToken()) {
     return getMemoryStore().get(id) ?? null;
   }
-
-  const loaded = await readBlobGame(id);
-  return loaded?.state ?? null;
+  return readBlobGame(id);
 }
 
 export async function deleteGame(id: string): Promise<void> {
@@ -63,9 +59,8 @@ export async function deleteGame(id: string): Promise<void> {
     getMemoryStore().delete(id);
     return;
   }
-
-  const loaded = await readBlobGame(id);
-  if (loaded) {
+  const state = await readBlobGame(id);
+  if (state) {
     await del(gamePath(id));
   }
 }
@@ -82,30 +77,12 @@ export async function updateGame(
     return updated;
   }
 
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const loaded = await readBlobGame(id);
-    if (!loaded) throw new Error("Игра не найдена");
+  const current = await readBlobGame(id);
+  if (!current) throw new Error("Игра не найдена");
 
-    const updated = updater(loaded.state);
-
-    try {
-      await put(gamePath(id), JSON.stringify(updated), {
-        access: "private",
-        allowOverwrite: true,
-        addRandomSuffix: false,
-        contentType: "application/json",
-        ...(loaded.etag ? { ifMatch: loaded.etag } : {}),
-      });
-      return updated;
-    } catch (error) {
-      if (error instanceof BlobPreconditionFailedError && attempt < 4) {
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  throw new Error("Конфликт обновления, попробуйте снова");
+  const updated = updater(current);
+  await writeBlobGame(updated);
+  return updated;
 }
 
 export function isPersistentStore(): boolean {
