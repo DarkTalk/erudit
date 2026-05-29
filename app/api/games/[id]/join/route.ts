@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server";
 import { joinGame, startGame } from "@/lib/game-logic";
-import { loadGame, updateGame } from "@/lib/store";
+import { updateGame } from "@/lib/store";
 import type { JoinGameRequest } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-const JOIN_RETRIES = 5;
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 export async function POST(
   request: Request,
@@ -24,24 +18,29 @@ export async function POST(
     switch (action) {
       case "join": {
         const { playerName } = body as JoinGameRequest;
+        const normalizedName = playerName.trim().slice(0, 20) || "Игрок";
+        let playerId = "";
 
-        for (let attempt = 0; attempt < JOIN_RETRIES; attempt++) {
-          let playerId = "";
-          await updateGame(id, (state) => {
-            const result = joinGame(state, playerName);
-            playerId = result.playerId;
-            return result.state;
-          });
-
-          const verify = await loadGame(id);
-          if (verify?.players.some((p) => p.id === playerId)) {
-            return NextResponse.json({ playerId });
+        await updateGame(id, (state) => {
+          const existing = state.players.find((p) => p.name === normalizedName);
+          if (existing) {
+            playerId = existing.id;
+            return {
+              ...state,
+              players: state.players.map((p) =>
+                p.id === existing.id
+                  ? { ...p, connected: true, lastSeen: Date.now() }
+                  : p
+              ),
+            };
           }
 
-          await sleep(80 * (attempt + 1));
-        }
+          const result = joinGame(state, playerName);
+          playerId = result.playerId;
+          return result.state;
+        });
 
-        throw new Error("Не удалось подключиться, попробуйте снова");
+        return NextResponse.json({ playerId });
       }
       case "start": {
         await updateGame(id, (state) => startGame(state, body.playerId));
