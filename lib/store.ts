@@ -20,13 +20,23 @@ function gameKey(id: string): string {
   return `${GAME_PREFIX}${id}`;
 }
 
-function getRedis(): Redis | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+function getRedisCredentials(): { url: string; token: string } | null {
+  const url =
+    process.env.UPSTASH_REDIS_REST_URL ??
+    process.env.KV_REST_API_URL;
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN ??
+    process.env.KV_REST_API_TOKEN;
   if (!url || !token) return null;
+  return { url, token };
+}
+
+function getRedis(): Redis | null {
+  const creds = getRedisCredentials();
+  if (!creds) return null;
 
   if (!globalStore.__eruditRedis) {
-    globalStore.__eruditRedis = new Redis({ url, token });
+    globalStore.__eruditRedis = new Redis(creds);
   }
   return globalStore.__eruditRedis;
 }
@@ -88,5 +98,31 @@ export async function updateGame(
 }
 
 export function isPersistentStore(): boolean {
-  return !!getRedis();
+  return !!getRedisCredentials();
+}
+
+export async function checkRedisConnection(): Promise<{
+  connected: boolean;
+  mode: "redis" | "memory";
+  error?: string;
+}> {
+  const creds = getRedisCredentials();
+  if (!creds) {
+    return { connected: false, mode: "memory" };
+  }
+
+  try {
+    const redis = getRedis()!;
+    const pong = await redis.ping();
+    return {
+      connected: pong === "PONG",
+      mode: "redis",
+    };
+  } catch (e) {
+    return {
+      connected: false,
+      mode: "redis",
+      error: e instanceof Error ? e.message : "Unknown error",
+    };
+  }
 }

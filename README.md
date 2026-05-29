@@ -15,7 +15,7 @@
 ```bash
 npm install
 cp .env.example .env.local
-# Добавьте UPSTASH_REDIS_REST_URL и UPSTASH_REDIS_REST_TOKEN из Vercel Dashboard
+# Добавьте KV_REST_API_URL и KV_REST_API_TOKEN из Vercel Dashboard
 npm run dev
 ```
 
@@ -43,12 +43,20 @@ npm run dev
 3. Имя базы (например `erudit-redis`) → **Create & Connect to Project**
 
 Vercel автоматически добавит переменные:
-- `UPSTASH_REDIS_REST_URL`
-- `UPSTASH_REDIS_REST_TOKEN`
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
+
+(Также поддерживаются `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`.)
 
 ### 4. Redeploy
 
 После подключения Redis выполните **Redeploy** (Deployments → ⋯ → Redeploy).
+
+Проверка: откройте `https://ваш-домен.vercel.app/api/health` — должно быть:
+
+```json
+{ "connected": true, "mode": "redis" }
+```
 
 > Если ранее был подключён Blob Store — его можно отключить, он больше не используется.
 
