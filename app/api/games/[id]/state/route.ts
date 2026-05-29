@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { loadGame } from "@/lib/store";
 import type { GameState } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+};
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -16,7 +23,7 @@ export async function GET(
   }
 
   if (!playerId) {
-    return NextResponse.json(sanitizeForLobby(state));
+    return NextResponse.json(sanitizeForLobby(state), { headers: NO_CACHE });
   }
 
   const player = state.players.find((p) => p.id === playerId);
@@ -24,7 +31,7 @@ export async function GET(
     return NextResponse.json({ error: "Игрок не найден" }, { status: 403 });
   }
 
-  return NextResponse.json(sanitizeForPlayer(state, playerId));
+  return NextResponse.json(sanitizeForPlayer(state, playerId), { headers: NO_CACHE });
 }
 
 function sanitizeForLobby(state: GameState) {

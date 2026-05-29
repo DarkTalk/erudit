@@ -61,12 +61,14 @@ export function useGame(gameId: string, playerId: string | null) {
 
   useEffect(() => {
     fetchState();
-    const interval = setInterval(fetchState, 2000);
+    const intervalMs = state?.status === "waiting" ? 1000 : 2000;
+    const interval = setInterval(fetchState, intervalMs);
     return () => clearInterval(interval);
-  }, [fetchState]);
+  }, [fetchState, state?.status]);
 
   useEffect(() => {
-    if (!playerId) return;
+    if (!playerId || state?.status !== "playing") return;
+
     const ping = () => {
       fetch(`/api/games/${gameId}/join`, {
         method: "POST",
@@ -75,9 +77,9 @@ export function useGame(gameId: string, playerId: string | null) {
       }).catch(() => {});
     };
     ping();
-    const interval = setInterval(ping, 10000);
+    const interval = setInterval(ping, 30000);
     return () => clearInterval(interval);
-  }, [gameId, playerId]);
+  }, [gameId, playerId, state?.status]);
 
   const apiCall = async (url: string, body: Record<string, unknown>) => {
     const v = ++versionRef.current;
