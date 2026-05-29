@@ -8,40 +8,26 @@
 - Словарь из 51 000+ русских существительных
 - Классическое поле 15×15 с бонусными клетками
 - Обмен фишек, пропуск хода, пустые фишки
-- Состояние игры в Vercel Blob (object storage)
+- Состояние игры в Upstash Redis
 
 ## Локальный запуск
 
 ```bash
 npm install
 cp .env.example .env.local
-# Добавьте BLOB_READ_WRITE_TOKEN из Vercel Dashboard (Storage → Blob)
+# Добавьте UPSTASH_REDIS_REST_URL и UPSTASH_REDIS_REST_TOKEN из Vercel Dashboard
 npm run dev
 ```
 
 Откройте [http://localhost:3000](http://localhost:3000).
 
-> Без `BLOB_READ_WRITE_TOKEN` игра работает в памяти — подходит только для быстрого теста на одном процессе.
+> Без Redis-переменных игра работает в памяти — подходит только для быстрого теста на одном процессе.
 
 ## Деплой на Vercel
 
 ### 1. Репозиторий на GitHub
 
-```bash
-git init
-git add .
-git commit -m "Initial commit: Erudit web game"
-gh auth login
-gh repo create erudit --public --source=. --remote=origin --push
-```
-
-Или создайте репозиторий вручную на [github.com/new](https://github.com/new) и выполните:
-
-```bash
-git remote add origin https://github.com/YOUR_USERNAME/erudit.git
-git branch -M main
-git push -u origin main
-```
+Репозиторий: [github.com/DarkTalk/erudit](https://github.com/DarkTalk/erudit)
 
 ### 2. Импорт в Vercel
 
@@ -50,17 +36,21 @@ git push -u origin main
 3. Framework Preset: **Next.js** (определяется автоматически)
 4. Deploy
 
-### 3. Подключить Vercel Blob
+### 3. Подключить Upstash Redis
 
 1. Vercel Dashboard → ваш проект → **Storage**
-2. **Create Database** → **Blob** → **Continue**
-3. Имя store (например `erudit-blob`) → **Create & Connect to Project**
+2. **Create Database** → **Redis** (Upstash) → **Continue**
+3. Имя базы (например `erudit-redis`) → **Create & Connect to Project**
 
-Vercel автоматически добавит переменную `BLOB_READ_WRITE_TOKEN` в проект.
+Vercel автоматически добавит переменные:
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
 
 ### 4. Redeploy
 
-После подключения Blob выполните **Redeploy** (Deployments → ⋯ → Redeploy), чтобы переменная окружения применилась.
+После подключения Redis выполните **Redeploy** (Deployments → ⋯ → Redeploy).
+
+> Если ранее был подключён Blob Store — его можно отключить, он больше не используется.
 
 ## Как играть
 
@@ -74,14 +64,8 @@ Vercel автоматически добавит переменную `BLOB_READ
 
 - Next.js 15, React 19, TypeScript
 - Tailwind CSS 4
-- Vercel Blob (Fast object storage)
+- Upstash Redis
 
 ## Структура хранилища
 
-Каждая игра сохраняется как JSON-файл:
-
-```
-games/{gameId}.json
-```
-
-Доступ приватный (`access: private`), чтение/запись только через API с токеном.
+Каждая игра — JSON в Redis с ключом `game:{gameId}` и TTL 7 дней.

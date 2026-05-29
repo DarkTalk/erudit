@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@vercel/blob": "^2.4.0",
+    "@upstash/redis": "^1.34.3",
     "clsx": "^2.1.1",
     "nanoid": "^5.0.9",
     "next": "^15.1.0",

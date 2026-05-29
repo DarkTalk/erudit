@@ -1,11 +1,12 @@
-import { del, get, put } from "@vercel/blob";
+import { Redis } from "@upstash/redis";
 import type { GameState } from "./types";
 
-const GAME_PREFIX = "games";
-const MAX_RETRIES = 5;
+const GAME_PREFIX = "game:";
+const TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 const globalStore = globalThis as typeof globalThis & {
   __eruditMemoryStore?: Map<string, GameState>;
+  __eruditRedis?: Redis | null;
 };
 
 function getMemoryStore(): Map<string, GameState> {
@@ -15,66 +16,62 @@ function getMemoryStore(): Map<string, GameState> {
   return globalStore.__eruditMemoryStore;
 }
 
-function gamePath(id: string): string {
-  return `${GAME_PREFIX}/${id}.json`;
+function gameKey(id: string): string {
+  return `${GAME_PREFIX}${id}`;
 }
 
-function hasBlobToken(): boolean {
-  return !!process.env.BLOB_READ_WRITE_TOKEN;
+function getRedis(): Redis | null {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+
+  if (!globalStore.__eruditRedis) {
+    globalStore.__eruditRedis = new Redis({ url, token });
+  }
+  return globalStore.__eruditRedis;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function readBlobGame(id: string): Promise<GameState | null> {
-  const result = await get(gamePath(id), { access: "private" });
-  if (!result?.stream) return null;
-
-  const text = await new Response(result.stream).text();
-  return JSON.parse(text) as GameState;
-}
-
-async function writeBlobGame(state: GameState): Promise<void> {
-  await put(gamePath(state.id), JSON.stringify(state), {
-    access: "private",
-    allowOverwrite: true,
-    addRandomSuffix: false,
-    contentType: "application/json",
-  });
+function parseGameState(data: unknown): GameState | null {
+  if (!data) return null;
+  if (typeof data === "string") {
+    return JSON.parse(data) as GameState;
+  }
+  return data as GameState;
 }
 
 export async function saveGame(state: GameState): Promise<void> {
-  if (!hasBlobToken()) {
+  const redis = getRedis();
+  if (!redis) {
     getMemoryStore().set(state.id, state);
     return;
   }
-  await writeBlobGame(state);
+  await redis.set(gameKey(state.id), state, { ex: TTL_SECONDS });
 }
 
 export async function loadGame(id: string): Promise<GameState | null> {
-  if (!hasBlobToken()) {
+  const redis = getRedis();
+  if (!redis) {
     return getMemoryStore().get(id) ?? null;
   }
-  return readBlobGame(id);
+  const data = await redis.get<GameState>(gameKey(id));
+  return parseGameState(data);
 }
 
 export async function deleteGame(id: string): Promise<void> {
-  if (!hasBlobToken()) {
+  const redis = getRedis();
+  if (!redis) {
     getMemoryStore().delete(id);
     return;
   }
-  const state = await readBlobGame(id);
-  if (state) {
-    await del(gamePath(id));
-  }
+  await redis.del(gameKey(id));
 }
 
 export async function updateGame(
   id: string,
   updater: (state: GameState) => GameState
 ): Promise<GameState> {
-  if (!hasBlobToken()) {
+  const redis = getRedis();
+  if (!redis) {
     const current = getMemoryStore().get(id);
     if (!current) throw new Error("Игра не найдена");
     const updated = updater(current);
@@ -82,28 +79,14 @@ export async function updateGame(
     return updated;
   }
 
-  let lastError: unknown;
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      const current = await readBlobGame(id);
-      if (!current) throw new Error("Игра не найдена");
+  const current = await loadGame(id);
+  if (!current) throw new Error("Игра не найдена");
 
-      const updated = updater(current);
-      await writeBlobGame(updated);
-      return updated;
-    } catch (error) {
-      lastError = error;
-      if (attempt < MAX_RETRIES - 1) {
-        await sleep(50 * (attempt + 1));
-      }
-    }
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("Не удалось сохранить игру");
+  const updated = updater(current);
+  await saveGame(updated);
+  return updated;
 }
 
 export function isPersistentStore(): boolean {
-  return hasBlobToken();
+  return !!getRedis();
 }
