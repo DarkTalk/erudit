@@ -3,26 +3,33 @@
 import Link from "next/link";
 import { HomeDemoBoard } from "@/components/HomeDemoBoard";
 
-const MODES = [
+type ModeIconName = "friends" | "bot" | "open";
+
+const MODES: {
+  href: string;
+  title: string;
+  description: string;
+  icon: ModeIconName;
+}[] = [
   {
     href: "/play/friends",
     title: "Играть с друзьями",
     description: "Создайте комнату и пригласите друзей по ссылке",
-    icon: "👥",
+    icon: "friends",
   },
   {
     href: "/play/bot",
     title: "Играть против компьютера",
     description: "Тренируйтесь против бота с выбором сложности",
-    icon: "🤖",
+    icon: "bot",
   },
   {
     href: "/play/open",
     title: "Открытая игра",
     description: "Создайте комнату или присоединитесь к случайному сопернику",
-    icon: "🌐",
+    icon: "open",
   },
-] as const;
+];
 
 export function ModePickerPage() {
   return (
@@ -44,9 +51,7 @@ export function ModePickerPage() {
               href={mode.href}
               className="flex items-start gap-4 w-full p-5 rounded-2xl bg-white border border-[var(--color-border)] shadow-sm hover:border-[var(--color-board)] hover:bg-[var(--color-board-light)] transition-all group"
             >
-              <span className="text-2xl shrink-0 mt-0.5" aria-hidden>
-                {mode.icon}
-              </span>
+              <ModeIcon name={mode.icon} />
               <div>
                 <p className="font-semibold text-[var(--color-ink)] group-hover:text-[var(--color-board)] transition-colors">
                   {mode.title}
@@ -71,6 +76,48 @@ export function ModePickerPage() {
         <HomeDemoBoard />
       </div>
     </div>
+  );
+}
+
+function ModeIcon({ name }: { name: ModeIconName }) {
+  return (
+    <span
+      className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl bg-[var(--color-board-light)] border border-[var(--color-border)] text-[var(--color-board)] group-hover:text-[var(--color-tile)] group-hover:border-[var(--color-board)]/25 transition-colors"
+      aria-hidden
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="w-5 h-5"
+      >
+        {name === "friends" && (
+          <>
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </>
+        )}
+        {name === "bot" && (
+          <>
+            <rect x="5" y="5" width="14" height="14" rx="2.5" />
+            <path d="M9 9h6v6H9z" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+          </>
+        )}
+        {name === "open" && (
+          <>
+            <circle cx="12" cy="12" r="10" />
+            <path d="M2 12h20" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </>
+        )}
+      </svg>
+    </span>
   );
 }
 
