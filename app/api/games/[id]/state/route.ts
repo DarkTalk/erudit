@@ -43,6 +43,8 @@ function sanitizeForLobby(state: GameState) {
     currentPlayerIndex: state.currentPlayerIndex,
     winnerId: state.winnerId,
     bagCount: state.bag.length,
+    settings: state.settings,
+    initialWord: state.initialWord,
     moves: state.moves.slice(-5),
     players: state.players.map((p) => ({
       id: p.id,

@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis";
-import type { GameState } from "./types";
+import { DEFAULT_GAME_SETTINGS, type GameState } from "./types";
 
 const GAME_PREFIX = "game:";
 const TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
@@ -43,10 +43,12 @@ function getRedis(): Redis | null {
 
 function parseGameState(data: unknown): GameState | null {
   if (!data) return null;
-  if (typeof data === "string") {
-    return JSON.parse(data) as GameState;
-  }
-  return data as GameState;
+  const raw =
+    typeof data === "string" ? (JSON.parse(data) as GameState) : (data as GameState);
+  return {
+    ...raw,
+    settings: raw.settings ?? DEFAULT_GAME_SETTINGS,
+  };
 }
 
 export async function saveGame(state: GameState): Promise<void> {

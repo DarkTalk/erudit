@@ -1,15 +1,20 @@
 import { nanoid } from "nanoid";
 import { createEmptyBoard } from "./board";
-import { isValidWord } from "./dictionary";
+import { isValidWord, pickRandomSevenLetterWord } from "./dictionary";
 import { createTileBag, drawTiles, tilePoints } from "./tiles";
 import {
   BOARD_SIZE,
   CENTER,
+  DEFAULT_GAME_SETTINGS,
   MAX_PLAYERS,
+  MAX_TILE_BAG_SIZE,
   MIN_PLAYERS,
+  MIN_TILE_BAG_SIZE,
   RACK_SIZE,
+  STARTING_WORD_LENGTH,
   type BoardCell,
   type GameMove,
+  type GameSettings,
   type GameState,
   type PendingPlacement,
   type PlacedTile,
@@ -17,9 +22,25 @@ import {
   type RackTile,
 } from "./types";
 
-export function createGame(hostName: string, maxPlayers = 4): GameState {
+function normalizeSettings(partial?: Partial<GameSettings>): GameSettings {
+  const mode = partial?.mode === "crossword" ? "crossword" : "normal";
+  const tileBagSize = Math.min(
+    MAX_TILE_BAG_SIZE,
+    Math.max(MIN_TILE_BAG_SIZE, partial?.tileBagSize ?? DEFAULT_GAME_SETTINGS.tileBagSize)
+  );
+  const startingWord = partial?.startingWord === true;
+
+  return { mode, tileBagSize, startingWord };
+}
+
+export function createGame(
+  hostName: string,
+  maxPlayers = 4,
+  settings?: Partial<GameSettings>
+): GameState {
   const hostId = nanoid(10);
-  const bag = createTileBag();
+  const gameSettings = normalizeSettings(settings);
+  const bag = createTileBag(gameSettings.tileBagSize);
   const [rack] = drawTiles(bag, RACK_SIZE);
 
   return {
@@ -44,6 +65,25 @@ export function createGame(hostName: string, maxPlayers = 4): GameState {
     consecutivePasses: 0,
     winnerId: null,
     maxPlayers: Math.min(Math.max(maxPlayers, MIN_PLAYERS), MAX_PLAYERS),
+    settings: gameSettings,
+  };
+}
+
+export function updateGameSettings(
+  state: GameState,
+  hostId: string,
+  partial: Partial<GameSettings>
+): GameState {
+  if (state.hostId !== hostId) throw new Error("Только хост может менять настройки");
+  if (state.status !== "waiting") throw new Error("Настройки можно менять только до начала игры");
+
+  const settings = normalizeSettings({ ...state.settings, ...partial });
+  const bag = createTileBag(settings.tileBagSize);
+
+  return {
+    ...state,
+    settings,
+    bag,
   };
 }
 
@@ -72,7 +112,17 @@ export function startGame(state: GameState, hostId: string): GameState {
   if (state.status !== "waiting") throw new Error("Игра уже началась");
   if (state.players.length < MIN_PLAYERS) throw new Error(`Нужно минимум ${MIN_PLAYERS} игрока`);
 
-  let bag = createTileBag();
+  let bag = createTileBag(state.settings.tileBagSize);
+  let board = createEmptyBoard();
+  let initialWord: string | undefined;
+
+  if (state.settings.startingWord) {
+    const placed = placeInitialWord(board, bag);
+    board = placed.board;
+    bag = placed.bag;
+    initialWord = placed.word;
+  }
+
   const players = state.players.map((p) => {
     const [rack, newBag] = drawTiles(bag, RACK_SIZE);
     bag = newBag;
@@ -83,13 +133,56 @@ export function startGame(state: GameState, hostId: string): GameState {
     ...state,
     status: "playing",
     players,
-    board: createEmptyBoard(),
+    board,
     bag,
     currentPlayerIndex: 0,
     moves: [],
     consecutivePasses: 0,
     winnerId: null,
+    initialWord,
   };
+}
+
+function placeInitialWord(
+  board: BoardCell[][],
+  bag: RackTile[]
+): { board: BoardCell[][]; bag: RackTile[]; word: string } {
+  const newBoard = cloneBoard(board);
+  let newBag = [...bag];
+
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const word = pickRandomSevenLetterWord();
+    const letters = word.split("");
+    const startCol = CENTER - Math.floor(STARTING_WORD_LENGTH / 2);
+    const row = CENTER;
+
+    try {
+      const workingBag = [...newBag];
+      for (let i = 0; i < letters.length; i++) {
+        const letter = letters[i]!.toLowerCase();
+        const tileIdx = workingBag.findIndex(
+          (t) => !t.isBlank && t.letter.toLowerCase() === letter
+        );
+        if (tileIdx === -1) {
+          throw new Error("missing letter");
+        }
+        workingBag.splice(tileIdx, 1);
+      }
+
+      for (let i = 0; i < letters.length; i++) {
+        newBoard[row]![startCol + i] = {
+          ...newBoard[row]![startCol + i]!,
+          tile: { letter: letters[i]!.toUpperCase() },
+        };
+      }
+
+      return { board: newBoard, bag: workingBag, word };
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error("Не удалось подобрать начальное слово для мешка");
 }
 
 function getLetter(tile: PlacedTile): string {
@@ -183,6 +276,95 @@ function placementsFormValidLine(
   }
 
   return false;
+}
+
+/**
+ * Длина горизонтального/вертикального ряда фишек через клетку.
+ */
+function horizontalRunLength(board: BoardCell[][], row: number, col: number): number {
+  if (!board[row][col].tile) return 0;
+  let start = col;
+  while (start > 0 && board[row][start - 1].tile) start--;
+  let end = col;
+  while (end < BOARD_SIZE - 1 && board[row][end + 1].tile) end++;
+  return end - start + 1;
+}
+
+function verticalRunLength(board: BoardCell[][], row: number, col: number): number {
+  if (!board[row][col].tile) return 0;
+  let start = row;
+  while (start > 0 && board[start - 1][col].tile) start--;
+  let end = row;
+  while (end < BOARD_SIZE - 1 && board[end + 1][col].tile) end++;
+  return end - start + 1;
+}
+
+/**
+ * Кроссворд: на соседних строках/столбцах нельзя ставить параллельные слова «внахлёст».
+ * Перпендикулярное пересечение (горизонталь + вертикаль) не считается параллельным.
+ */
+function validateCrosswordLayout(board: BoardCell[][]): void {
+  const crosswordGapError = "Кроссворд: между параллельными словами нужен отступ";
+
+  for (let r = 0; r < BOARD_SIZE; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      if (!board[r][c].tile) continue;
+
+      // Смещённые параллельные горизонтальные слова на соседних строках
+      if (r + 1 < BOARD_SIZE && !board[r + 1][c].tile) {
+        for (const dc of [-1, 1] as const) {
+          const nc = c + dc;
+          if (nc < 0 || nc >= BOARD_SIZE || !board[r + 1][nc].tile) continue;
+          if (
+            horizontalRunLength(board, r, c) >= 2 &&
+            horizontalRunLength(board, r + 1, nc) >= 2
+          ) {
+            throw new Error(crosswordGapError);
+          }
+        }
+      }
+
+      if (r > 0 && !board[r - 1][c].tile) {
+        for (const dc of [-1, 1] as const) {
+          const nc = c + dc;
+          if (nc < 0 || nc >= BOARD_SIZE || !board[r - 1][nc].tile) continue;
+          if (
+            horizontalRunLength(board, r, c) >= 2 &&
+            horizontalRunLength(board, r - 1, nc) >= 2
+          ) {
+            throw new Error(crosswordGapError);
+          }
+        }
+      }
+
+      // Смещённые параллельные вертикальные слова на соседних столбцах
+      if (c + 1 < BOARD_SIZE && !board[r][c + 1].tile) {
+        for (const dr of [-1, 1] as const) {
+          const nr = r + dr;
+          if (nr < 0 || nr >= BOARD_SIZE || !board[nr][c + 1].tile) continue;
+          if (
+            verticalRunLength(board, r, c) >= 2 &&
+            verticalRunLength(board, nr, c + 1) >= 2
+          ) {
+            throw new Error(crosswordGapError);
+          }
+        }
+      }
+
+      if (c > 0 && !board[r][c - 1].tile) {
+        for (const dr of [-1, 1] as const) {
+          const nr = r + dr;
+          if (nr < 0 || nr >= BOARD_SIZE || !board[nr][c - 1].tile) continue;
+          if (
+            verticalRunLength(board, r, c) >= 2 &&
+            verticalRunLength(board, nr, c - 1) >= 2
+          ) {
+            throw new Error(crosswordGapError);
+          }
+        }
+      }
+    }
+  }
 }
 
 function placementsConnectedToExisting(
@@ -382,6 +564,10 @@ export function placeTiles(
     if (normalized.length >= 2 && !isValidWord(normalized)) {
       throw new Error(`«${word}» — неизвестное слово`);
     }
+  }
+
+  if (state.settings.mode === "crossword") {
+    validateCrosswordLayout(tempBoard);
   }
 
   const { total, words } = scoreMove(tempBoard);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { GameSettings } from "@/lib/types";
 
 export interface GameViewState {
   id: string;
@@ -10,6 +11,8 @@ export interface GameViewState {
   currentPlayerIndex: number;
   winnerId: string | null;
   bagCount: number;
+  settings: GameSettings;
+  initialWord?: string;
   isMyTurn?: boolean;
   isHost?: boolean;
   myRack?: { id: string; letter?: string; isBlank?: boolean; hidden?: boolean }[];
@@ -89,6 +92,15 @@ export function useGame(gameId: string, playerId: string | null) {
     return apiCall(`/api/games/${gameId}/join`, { action: "start", playerId });
   };
 
+  const updateSettings = async (settings: Partial<GameSettings>) => {
+    if (!playerId) throw new Error("Не авторизован");
+    return apiCall(`/api/games/${gameId}/join`, {
+      action: "updateSettings",
+      playerId,
+      settings,
+    });
+  };
+
   const place = async (
     placements: { row: number; col: number; tileId: string }[],
     blankLetters: Record<string, string>
@@ -127,6 +139,7 @@ export function useGame(gameId: string, playerId: string | null) {
     loading,
     join,
     start,
+    updateSettings,
     place,
     exchange,
     pass,

@@ -26,7 +26,7 @@ function placeWord(
 }
 
 /**
- * Mid-game demo: every horizontal and vertical run of 2+ letters is a valid word.
+ * Mid-game demo (crossword): every horizontal and vertical run of 2+ letters is a valid word.
  * «ИГРА» (first move through ★) → «КОРТ» → «КОТ».
  */
 export function createHomeDemoBoard(): BoardCell[][] {
@@ -35,6 +35,19 @@ export function createHomeDemoBoard(): BoardCell[][] {
   placeWord(board, "ИГРА", CENTER - 2, CENTER, false);
   placeWord(board, "КОРТ", CENTER, CENTER - 2, true);
   placeWord(board, "КОТ", CENTER, CENTER - 2, false);
+
+  return board;
+}
+
+/**
+ * Normal mode demo: parallel words may be offset without crossword gaps.
+ * «ЛАМПА» with «ИМЯ» shifted one cell — invalid in crossword, ok in normal mode.
+ */
+export function createNormalDemoBoard(): BoardCell[][] {
+  const board = createEmptyBoard();
+
+  placeWord(board, "ЛАМПА", CENTER, CENTER - 2, true);
+  placeWord(board, "ИМЯ", CENTER + 1, CENTER - 1, true);
 
   return board;
 }

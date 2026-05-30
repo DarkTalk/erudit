@@ -14,12 +14,15 @@ export const LETTER_COUNTS: Record<string, number> = {
 
 export const BLANK_COUNT = 2;
 
+export const FULL_TILE_BAG_SIZE =
+  Object.values(LETTER_COUNTS).reduce((sum, n) => sum + n, 0) + BLANK_COUNT;
+
 export function tilePoints(letter: string, isBlank?: boolean): number {
   if (isBlank) return 0;
   return LETTER_POINTS[letter.toLowerCase()] ?? 0;
 }
 
-export function createTileBag(): { id: string; letter: string; isBlank?: boolean }[] {
+export function createTileBag(size = FULL_TILE_BAG_SIZE): { id: string; letter: string; isBlank?: boolean }[] {
   const bag: { id: string; letter: string; isBlank?: boolean }[] = [];
   let idx = 0;
 
@@ -32,7 +35,9 @@ export function createTileBag(): { id: string; letter: string; isBlank?: boolean
     bag.push({ id: `t${idx++}`, letter: "?", isBlank: true });
   }
 
-  return shuffle(bag);
+  const shuffled = shuffle(bag);
+  const clamped = Math.min(Math.max(size, 1), shuffled.length);
+  return shuffled.slice(0, clamped);
 }
 
 function shuffle<T>(arr: T[]): T[] {

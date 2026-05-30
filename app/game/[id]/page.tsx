@@ -18,7 +18,7 @@ export default function GamePage() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
-  const { state, error, loading, join, start, place, exchange, pass, surrender } = useGame(
+  const { state, error, loading, join, start, updateSettings, place, exchange, pass, surrender } = useGame(
     gameId,
     playerId
   );
@@ -124,6 +124,7 @@ export default function GamePage() {
       onPass={pass}
       onSurrender={surrender}
       onStart={start}
+      onUpdateSettings={updateSettings}
     />
   );
 }

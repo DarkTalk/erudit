@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { formatGameMode, GameSettingsPanel } from "./GameSettingsPanel";
 import { GameBoard } from "./GameBoard";
 import { LetterPicker } from "./LetterPicker";
 import { PlayerList } from "./PlayerList";
 import { TileRack } from "./TileRack";
 import { VictoryFireworks } from "./VictoryFireworks";
 import type { GameViewState } from "@/hooks/useGame";
+import { DEFAULT_GAME_SETTINGS, type GameSettings } from "@/lib/types";
 
 interface PendingPlacement {
   row: number;
@@ -28,6 +30,7 @@ interface GameViewProps {
   onPass: () => Promise<void>;
   onSurrender: () => Promise<void>;
   onStart: () => Promise<void>;
+  onUpdateSettings?: (settings: GameSettings) => Promise<void>;
 }
 
 export function GameView({
@@ -38,6 +41,7 @@ export function GameView({
   onPass,
   onSurrender,
   onStart,
+  onUpdateSettings,
 }: GameViewProps) {
   const [pending, setPending] = useState<PendingPlacement[]>([]);
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
@@ -266,14 +270,16 @@ export function GameView({
 
   if (state.status === "waiting") {
     return (
-      <div className="max-w-lg mx-auto space-y-6">
+      <div className="max-w-xl mx-auto space-y-6">
         <LobbyCard
           gameId={state.id}
           onCopyLink={copyLink}
           linkCopied={linkCopied}
           players={state.players}
           maxPlayers={state.maxPlayers}
+          settings={state.settings ?? DEFAULT_GAME_SETTINGS}
           isHost={state.isHost}
+          onUpdateSettings={state.isHost ? onUpdateSettings : undefined}
           onStart={async () => {
             setSubmitting(true);
             try {
@@ -454,6 +460,12 @@ export function GameView({
             <span>В мешке</span>
             <span className="text-[var(--color-ink)] font-medium">{state.bagCount} фиш.</span>
           </div>
+          <div className="text-xs text-[var(--color-ink-faint)] space-y-1 mb-2">
+            <p>Режим: {formatGameMode((state.settings ?? DEFAULT_GAME_SETTINGS).mode)}</p>
+            {state.initialWord && (
+              <p>Начальное слово: {state.initialWord}</p>
+            )}
+          </div>
           <button
             type="button"
             onClick={copyLink}
@@ -526,7 +538,9 @@ function LobbyCard({
   linkCopied,
   players,
   maxPlayers,
+  settings,
   isHost,
+  onUpdateSettings,
   onStart,
   submitting,
   error,
@@ -536,11 +550,47 @@ function LobbyCard({
   linkCopied: boolean;
   players: GameViewState["players"];
   maxPlayers: number;
+  settings: GameSettings;
   isHost?: boolean;
+  onUpdateSettings?: (settings: GameSettings) => Promise<void>;
   onStart: () => void;
   submitting: boolean;
   error: string | null;
 }) {
+  const [localSettings, setLocalSettings] = useState(settings);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
+
+  const handleSettingsChange = (next: GameSettings) => {
+    setLocalSettings(next);
+    if (!onUpdateSettings) return;
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      setSettingsSaving(true);
+      setSettingsError(null);
+      try {
+        await onUpdateSettings(next);
+      } catch (e) {
+        setSettingsError(e instanceof Error ? e.message : "Ошибка");
+        setLocalSettings(settings);
+      } finally {
+        setSettingsSaving(false);
+      }
+    }, 400);
+  };
+
   return (
     <div className="rounded-2xl bg-white border border-[var(--color-border)] p-6 space-y-6 shadow-sm">
       <div className="text-center">
@@ -557,6 +607,30 @@ function LobbyCard({
           currentPlayerIndex={0}
           status="waiting"
         />
+      </div>
+
+      <div className="rounded-xl border border-[var(--color-border)] p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-[var(--color-ink-muted)] uppercase tracking-wider">
+            Настройки игры
+          </h2>
+          {settingsSaving && (
+            <span className="text-xs text-[var(--color-ink-faint)]">Сохранение...</span>
+          )}
+        </div>
+        {!isHost && (
+          <p className="text-sm text-[var(--color-ink-faint)] mb-4">
+            Менять настройки может создатель комнаты
+          </p>
+        )}
+        <GameSettingsPanel
+          settings={localSettings}
+          onChange={isHost ? handleSettingsChange : undefined}
+          readOnly={!isHost}
+        />
+        {settingsError && (
+          <p className="text-red-600 text-sm text-center mt-3">{settingsError}</p>
+        )}
       </div>
 
       <div className="space-y-1">

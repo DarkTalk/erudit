@@ -2,12 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { defaultGameSettings, GameSettingsPanel } from "@/components/GameSettingsPanel";
 import { HomeDemoBoard } from "@/components/HomeDemoBoard";
+import type { GameSettings } from "@/lib/types";
 
 export function HomePage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [gameCode, setGameCode] = useState("");
+  const [settings, setSettings] = useState<GameSettings>(() => defaultGameSettings());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +25,7 @@ export function HomePage() {
       const res = await fetch("/api/games", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerName: name.trim() }),
+        body: JSON.stringify({ playerName: name.trim(), settings }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Ошибка");
@@ -55,7 +58,7 @@ export function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-start min-h-[calc(100dvh-73px)] pt-4 pb-8">
-      <div className="w-full max-w-sm text-center space-y-10">
+      <div className="w-full max-w-md text-center space-y-10">
         <div>
           <h1 className="text-[clamp(2.75rem,8vw,3.75rem)] font-bold font-serif text-[var(--color-board)] tracking-tight leading-tight">
             Эрудит
@@ -76,6 +79,11 @@ export function HomePage() {
               maxLength={20}
               className="w-full px-4 py-3.5 rounded-xl bg-white text-[var(--color-ink)] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] placeholder:text-[var(--color-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--color-board)]/15 transition-shadow"
             />
+
+            <div className="rounded-2xl bg-white border border-[var(--color-border)] p-4 shadow-sm">
+              <h2 className="text-sm font-semibold text-[var(--color-ink)] mb-4">Настройки игры</h2>
+              <GameSettingsPanel settings={settings} onChange={setSettings} />
+            </div>
 
             <button
               type="button"

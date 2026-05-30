@@ -43,6 +43,14 @@ export interface GameMove {
   timestamp: number;
 }
 
+export type GameMode = "normal" | "crossword";
+
+export interface GameSettings {
+  mode: GameMode;
+  tileBagSize: number;
+  startingWord: boolean;
+}
+
 export interface GameState {
   id: string;
   createdAt: number;
@@ -56,11 +64,20 @@ export interface GameState {
   consecutivePasses: number;
   winnerId: string | null;
   maxPlayers: number;
+  settings: GameSettings;
+  /** Слово на доске при старте (если startingWord), видно всем после начала */
+  initialWord?: string;
 }
 
 export interface CreateGameRequest {
   playerName: string;
   maxPlayers?: number;
+  settings?: Partial<GameSettings>;
+}
+
+export interface UpdateGameSettingsRequest {
+  playerId: string;
+  settings: Partial<GameSettings>;
 }
 
 export interface JoinGameRequest {
@@ -86,3 +103,13 @@ export const CENTER = 7;
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 4;
 export const RACK_SIZE = 7;
+export const STARTING_WORD_LENGTH = 7;
+export const DEFAULT_TILE_BAG_SIZE = 109;
+export const MIN_TILE_BAG_SIZE = 50;
+export const MAX_TILE_BAG_SIZE = 109;
+
+export const DEFAULT_GAME_SETTINGS: GameSettings = {
+  mode: "normal",
+  tileBagSize: DEFAULT_TILE_BAG_SIZE,
+  startingWord: false,
+};
