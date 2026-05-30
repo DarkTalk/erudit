@@ -2,15 +2,26 @@
 
 @theme {
   --font-serif: "Georgia", "Times New Roman", serif;
+  --color-paper: #f7f5f0;
+  --color-paper-deep: #efe9df;
+  --color-ink: #1c1917;
+  --color-ink-muted: #78716c;
+  --color-ink-faint: #a8a29e;
+  --color-border: #e7e5e4;
+  --color-board: #2d5a3d;
+  --color-board-hover: #234a32;
+  --color-board-light: #e8f0eb;
+  --color-tile: #d4a574;
 }
 
 body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
-  color: #f0f0f5;
+  color: var(--color-ink);
+  background-color: var(--color-paper);
 }
 
 ::selection {
-  background: rgba(139, 92, 246, 0.4);
+  background: rgba(45, 90, 61, 0.2);
 }
 
 @keyframes spin {

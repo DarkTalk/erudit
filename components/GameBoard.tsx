@@ -47,7 +47,7 @@ export function GameBoard({
   };
 
   return (
-    <div className="inline-block p-2 rounded-xl bg-emerald-950/80 border border-emerald-700/40 shadow-2xl">
+    <div className="inline-block p-2 rounded-xl bg-[#1a4d32] border border-[#2d5a3d] shadow-lg">
       <div
         className="grid gap-[2px]"
         style={{
@@ -74,7 +74,7 @@ export function GameBoard({
                   !hasTile && bonusColor(bonus),
                   !hasTile && "border border-emerald-800/30",
                   interactive && !hasTile && "cursor-pointer hover:brightness-125",
-                  pendingTile && "ring-2 ring-violet-400/80"
+                  pendingTile && "ring-2 ring-amber-300"
                 )}
               >
                 {!hasTile && bonus && (

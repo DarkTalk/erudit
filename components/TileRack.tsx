@@ -28,9 +28,9 @@ export function TileRack({
   interactive,
 }: TileRackProps) {
   return (
-    <div className="flex items-center justify-center gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-2xl bg-gradient-to-b from-amber-900/40 to-amber-950/60 border border-amber-700/30 shadow-inner min-h-[60px]">
+    <div className="flex items-center justify-center gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-2xl bg-[var(--color-paper-deep)] border border-[var(--color-border)] shadow-inner min-h-[60px]">
       {tiles.length === 0 ? (
-        <span className="text-amber-200/50 text-sm">Подставка пуста</span>
+        <span className="text-[var(--color-ink-faint)] text-sm">Подставка пуста</span>
       ) : (
         tiles.map((tile) =>
           tile.hidden ? (

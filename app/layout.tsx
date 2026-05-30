@@ -25,17 +25,15 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[var(--color-paper)] text-[var(--color-ink)]`}
       >
-        <div className="min-h-screen bg-[#0c0a14] relative overflow-x-hidden">
-          <div className="fixed inset-0 pointer-events-none">
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-fuchsia-600/10 rounded-full blur-3xl" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-600/5 rounded-full blur-3xl" />
-          </div>
-          <header className="relative z-10 border-b border-white/5">
+        <div className="min-h-screen relative overflow-x-hidden">
+          <header className="relative z-10 border-b border-[var(--color-border)] bg-white/70 backdrop-blur-sm">
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-              <a href="/" className="text-xl font-bold font-serif text-amber-200/90 hover:text-amber-100 transition-colors">
+              <a
+                href="/"
+                className="text-xl font-bold font-serif text-[var(--color-board)] hover:text-[var(--color-board-hover)] transition-colors tracking-tight"
+              >
                 Эрудит
               </a>
             </div>

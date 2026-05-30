@@ -43,6 +43,7 @@ export function GameView({
   const [blankLetters, setBlankLetters] = useState<Record<string, string>>({});
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const myRack = state.myRack ?? [];
   const pendingIds = new Set(pending.map((p) => p.tileId));
@@ -194,8 +195,9 @@ export function GameView({
     }
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(window.location.href);
+    setLinkCopied(true);
   };
 
   const lastMove = state.moves[state.moves.length - 1];
@@ -209,6 +211,7 @@ export function GameView({
         <LobbyCard
           gameId={state.id}
           onCopyLink={copyLink}
+          linkCopied={linkCopied}
           players={state.players}
           maxPlayers={state.maxPlayers}
           isHost={state.isHost}
@@ -260,16 +263,16 @@ export function GameView({
         )}
 
         {state.status === "playing" && !state.isMyTurn && (
-          <div className="text-center text-white/50 py-4">
+          <div className="text-center text-[var(--color-ink-muted)] py-4">
             Ход игрока {state.players[state.currentPlayerIndex]?.name}...
           </div>
         )}
 
         {state.status === "finished" && winner && (
-          <div className="text-center p-6 rounded-2xl bg-amber-500/10 border border-amber-400/30">
-            <p className="text-2xl font-bold text-amber-300">Игра окончена!</p>
-            <p className="text-white/80 mt-2">
-              Победитель: <span className="font-semibold text-white">{winner.name}</span> ({winner.score} очков)
+          <div className="text-center p-6 rounded-2xl bg-[var(--color-board-light)] border border-[var(--color-border)]">
+            <p className="text-2xl font-bold text-[var(--color-board)]">Игра окончена!</p>
+            <p className="text-[var(--color-ink-muted)] mt-2">
+              Победитель: <span className="font-semibold text-[var(--color-ink)]">{winner.name}</span> ({winner.score} очков)
             </p>
           </div>
         )}
@@ -311,13 +314,13 @@ export function GameView({
         )}
 
         {actionError && (
-          <p className="text-red-400 text-sm text-center">{actionError}</p>
+          <p className="text-red-600 text-sm text-center">{actionError}</p>
         )}
       </div>
 
       <aside className="lg:w-72 space-y-4">
-        <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-          <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">
+        <div className="rounded-2xl bg-white border border-[var(--color-border)] p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-[var(--color-ink-muted)] uppercase tracking-wider mb-3">
             Игроки
           </h2>
           <PlayerList
@@ -328,26 +331,26 @@ export function GameView({
           />
         </div>
 
-        <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-          <div className="flex items-center justify-between text-sm text-white/50 mb-2">
+        <div className="rounded-2xl bg-white border border-[var(--color-border)] p-4 shadow-sm">
+          <div className="flex items-center justify-between text-sm text-[var(--color-ink-muted)] mb-2">
             <span>В мешке</span>
-            <span className="text-white/80 font-medium">{state.bagCount} фиш.</span>
+            <span className="text-[var(--color-ink)] font-medium">{state.bagCount} фиш.</span>
           </div>
           <button
             type="button"
             onClick={copyLink}
-            className="w-full mt-2 py-2 rounded-xl text-sm bg-white/5 hover:bg-white/10 text-white/70 transition-colors"
+            className="w-full mt-2 py-2 rounded-xl text-sm border border-[var(--color-border)] hover:border-[var(--color-board)] hover:bg-[var(--color-board-light)] text-[var(--color-ink-muted)] transition-colors"
           >
-            Копировать ссылку
+            {linkCopied ? "Ссылка скопирована" : "Копировать ссылку"}
           </button>
         </div>
 
         {lastMove && (
-          <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-            <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-2">
+          <div className="rounded-2xl bg-white border border-[var(--color-border)] p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-[var(--color-ink-muted)] uppercase tracking-wider mb-2">
               Последний ход
             </h2>
-            <p className="text-white/80 text-sm">
+            <p className="text-[var(--color-ink)] text-sm">
               {state.players.find((p) => p.id === lastMove.playerId)?.name}
               {lastMove.type === "place" && lastMove.words && (
                 <> — {lastMove.words.join(", ")} (+{lastMove.score})</>
@@ -387,8 +390,8 @@ function ActionButton({
       disabled={disabled}
       className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
         primary
-          ? "bg-violet-500 hover:bg-violet-400 text-white shadow-lg shadow-violet-500/25 disabled:opacity-40"
-          : "bg-white/10 hover:bg-white/15 text-white/80 disabled:opacity-40"
+          ? "bg-[var(--color-board)] hover:bg-[var(--color-board-hover)] text-white disabled:opacity-40"
+          : "bg-white border border-[var(--color-border)] hover:border-[var(--color-board)] text-[var(--color-ink)] disabled:opacity-40"
       }`}
     >
       {children}
@@ -399,6 +402,7 @@ function ActionButton({
 function LobbyCard({
   gameId,
   onCopyLink,
+  linkCopied,
   players,
   maxPlayers,
   isHost,
@@ -408,6 +412,7 @@ function LobbyCard({
 }: {
   gameId: string;
   onCopyLink: () => void;
+  linkCopied: boolean;
   players: GameViewState["players"];
   maxPlayers: number;
   isHost?: boolean;
@@ -416,14 +421,14 @@ function LobbyCard({
   error: string | null;
 }) {
   return (
-    <div className="rounded-2xl bg-white/5 border border-white/10 p-6 space-y-6">
+    <div className="rounded-2xl bg-white border border-[var(--color-border)] p-6 space-y-6 shadow-sm">
       <div className="text-center">
-        <p className="text-white/50 text-sm">Комната</p>
-        <p className="text-3xl font-bold text-white tracking-widest font-mono mt-1">{gameId}</p>
+        <p className="text-[var(--color-ink-muted)] text-sm">Комната</p>
+        <p className="text-3xl font-bold text-[var(--color-ink)] tracking-widest font-mono mt-1">{gameId}</p>
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-[var(--color-ink-muted)] uppercase tracking-wider mb-3">
           Игроки ({players.length}/{maxPlayers})
         </h2>
         <PlayerList
@@ -433,32 +438,47 @@ function LobbyCard({
         />
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1">
         <button
           type="button"
           onClick={onCopyLink}
-          className="w-full py-3 rounded-xl bg-violet-500/20 border border-violet-400/30 text-violet-200 hover:bg-violet-500/30 transition-colors font-medium"
+          className={`w-full py-3 rounded-xl border font-medium transition-colors ${
+            linkCopied
+              ? "bg-[var(--color-board-light)] border-[var(--color-board)] text-[var(--color-board)]"
+              : "bg-white border-[var(--color-border)] text-[var(--color-ink)] hover:border-[var(--color-board)] hover:bg-[var(--color-board-light)]"
+          }`}
         >
-          Пригласить друзей — скопировать ссылку
+          {linkCopied
+            ? "Пригласить друзей — ссылка скопирована"
+            : "Пригласить друзей — скопировать ссылку"}
         </button>
+        {linkCopied && (
+          <button
+            type="button"
+            onClick={onCopyLink}
+            className="w-full text-xs text-[var(--color-ink-faint)] hover:text-[var(--color-board)] transition-colors py-1"
+          >
+            скопировать ещё раз
+          </button>
+        )}
 
         {isHost && (
           <button
             type="button"
             onClick={onStart}
             disabled={players.length < 2 || submitting}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
+            className="w-full py-3 rounded-xl bg-[var(--color-board)] text-white font-semibold hover:bg-[var(--color-board-hover)] transition-colors disabled:opacity-40 mt-2"
           >
             {submitting ? "Запуск..." : "Начать игру"}
           </button>
         )}
 
         {!isHost && (
-          <p className="text-center text-white/40 text-sm">Ожидание начала игры...</p>
+          <p className="text-center text-[var(--color-ink-faint)] text-sm pt-2">Ожидание начала игры...</p>
         )}
       </div>
 
-      {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+      {error && <p className="text-red-600 text-sm text-center">{error}</p>}
     </div>
   );
 }

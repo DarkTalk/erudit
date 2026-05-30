@@ -48,7 +48,7 @@ export function Tile({
         "border-2 border-amber-400/60 shadow-md",
         "transition-all duration-150 select-none",
         sizeClasses[size],
-        selected && "ring-2 ring-violet-400 scale-105 -translate-y-1 shadow-lg",
+        selected && "ring-2 ring-[var(--color-board)] scale-105 -translate-y-1 shadow-lg",
         !disabled && onClick && "hover:scale-105 hover:-translate-y-0.5 hover:shadow-lg cursor-pointer",
         disabled && "opacity-60 cursor-default",
         isBlank && "from-stone-100 to-stone-300 border-stone-400/60",
