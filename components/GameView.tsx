@@ -22,6 +22,9 @@ interface PendingPlacement {
 interface GameViewProps {
   state: GameViewState;
   playerId: string;
+  isLocal?: boolean;
+  handoffReady?: boolean;
+  onHandoffReady?: () => void;
   onPlace: (
     placements: { row: number; col: number; tileId: string }[],
     blankLetters: Record<string, string>
@@ -36,6 +39,9 @@ interface GameViewProps {
 export function GameView({
   state,
   playerId,
+  isLocal,
+  handoffReady = true,
+  onHandoffReady,
   onPlace,
   onExchange,
   onPass,
@@ -54,13 +60,16 @@ export function GameView({
   const [linkCopied, setLinkCopied] = useState(false);
   const [surrenderStep, setSurrenderStep] = useState<0 | 1>(0);
 
+  const canPlay = !!state.isMyTurn && (!isLocal || handoffReady);
+  const currentPlayer = state.players[state.currentPlayerIndex];
+
   useEffect(() => {
-    if (!state.isMyTurn) {
+    if (!canPlay) {
       setSurrenderStep(0);
       setExchangeMode(false);
       setSelectedExchange(new Set());
     }
-  }, [state.isMyTurn]);
+  }, [canPlay]);
 
   const myRack = state.myRack ?? [];
   const pendingIds = new Set(pending.map((p) => p.tileId));
@@ -88,7 +97,7 @@ export function GameView({
 
   const placeTile = useCallback(
     (row: number, col: number, tileId: string) => {
-      if (!state.isMyTurn) return;
+      if (!canPlay) return;
       if (state.board[row][col].tile) return;
 
       const existingAtCell = pending.find((p) => p.row === row && p.col === col);
@@ -126,7 +135,7 @@ export function GameView({
       ]);
       setSelectedTileId(null);
     },
-    [state.isMyTurn, state.board, pending, getTile, blankLetters]
+    [canPlay, state.board, pending, getTile, blankLetters]
   );
 
   const handleCellClick = (row: number, col: number) => {
@@ -265,8 +274,8 @@ export function GameView({
     ? state.players.find((p) => p.id === state.winnerId)
     : null;
   const isFinished = state.status === "finished";
-  const isWinner = isFinished && state.winnerId === playerId;
-  const isLoser = isFinished && state.winnerId !== null && state.winnerId !== playerId;
+  const isWinner = isFinished && !isLocal && state.winnerId === playerId;
+  const isLoser = isFinished && !isLocal && state.winnerId !== null && state.winnerId !== playerId;
 
   if (state.status === "waiting") {
     return (
@@ -309,32 +318,52 @@ export function GameView({
           onDrop={handleDrop}
           onPendingDragStart={handlePendingDragStart}
           onPendingClick={returnToRack}
-          interactive={!!state.isMyTurn && !exchangeMode}
+          interactive={canPlay && !exchangeMode}
         />
 
         {state.status === "playing" && (
           <>
-            <TileRack
-              tiles={availableRack as { id: string; letter?: string; isBlank?: boolean }[]}
-              selectedIds={
-                exchangeMode
-                  ? selectedExchange
-                  : selectedTileId
-                    ? new Set([selectedTileId])
-                    : new Set()
-              }
-              exchangeMode={exchangeMode}
-              onTileClick={handleTileClick}
-              onTileDragStart={(id) => (e) => {
-                e.dataTransfer.setData("tileId", id);
-              }}
-              onDrop={handleRackDrop}
-              interactive={!!state.isMyTurn}
-            />
-            {!state.isMyTurn && (
-              <div className="text-center text-[var(--color-ink-muted)] py-1">
-                Ход игрока {state.players[state.currentPlayerIndex]?.name}...
+            {isLocal && !handoffReady ? (
+              <div className="w-full max-w-md p-6 rounded-2xl bg-white border border-[var(--color-border)] shadow-sm text-center space-y-3">
+                <p className="text-lg font-semibold text-[var(--color-ink)]">
+                  Ход: {currentPlayer?.name}
+                </p>
+                <p className="text-sm text-[var(--color-ink-muted)] leading-relaxed">
+                  Передайте устройство этому игроку. Другие не должны видеть его фишки.
+                </p>
+                <button
+                  type="button"
+                  onClick={onHandoffReady}
+                  className="w-full py-3.5 rounded-xl bg-[var(--color-board)] text-white font-semibold hover:bg-[var(--color-board-hover)] transition-colors"
+                >
+                  Готов — показать фишки
+                </button>
               </div>
+            ) : (
+              <>
+                <TileRack
+                  tiles={availableRack as { id: string; letter?: string; isBlank?: boolean }[]}
+                  selectedIds={
+                    exchangeMode
+                      ? selectedExchange
+                      : selectedTileId
+                        ? new Set([selectedTileId])
+                        : new Set()
+                  }
+                  exchangeMode={exchangeMode}
+                  onTileClick={handleTileClick}
+                  onTileDragStart={(id) => (e) => {
+                    e.dataTransfer.setData("tileId", id);
+                  }}
+                  onDrop={handleRackDrop}
+                  interactive={canPlay}
+                />
+                {!canPlay && (
+                  <div className="text-center text-[var(--color-ink-muted)] py-1">
+                    Ход игрока {currentPlayer?.name}...
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -348,17 +377,23 @@ export function GameView({
             }`}
           >
             <p className="text-2xl font-bold text-[var(--color-board)]">
-              {isWinner ? "Победа!" : isLoser ? "Поражение" : "Игра окончена"}
+              {isLocal
+                ? "Игра окончена"
+                : isWinner
+                  ? "Победа!"
+                  : isLoser
+                    ? "Поражение"
+                    : "Игра окончена"}
             </p>
             <p className="text-[var(--color-ink-muted)] mt-2">
-              {isWinner ? (
-                <>Вы набрали <span className="font-semibold text-[var(--color-ink)]">{winner.score}</span> очков</>
-              ) : (
+              {isLocal || !isWinner ? (
                 <>
                   Победитель:{" "}
                   <span className="font-semibold text-[var(--color-ink)]">{winner.name}</span> ({winner.score}{" "}
                   очков)
                 </>
+              ) : (
+                <>Вы набрали <span className="font-semibold text-[var(--color-ink)]">{winner.score}</span> очков</>
               )}
             </p>
             <Link
@@ -370,7 +405,7 @@ export function GameView({
           </div>
         )}
 
-        {state.isMyTurn && state.status === "playing" && (
+        {canPlay && state.status === "playing" && (
           <div className="flex flex-wrap items-center justify-center gap-2">
             {!exchangeMode ? (
               <>
@@ -406,7 +441,7 @@ export function GameView({
           </div>
         )}
 
-        {state.status === "playing" && (
+        {canPlay && state.status === "playing" && (
           <div className="flex flex-col items-center gap-2 w-full">
             {surrenderStep === 0 ? (
               <ActionButton
@@ -451,8 +486,8 @@ export function GameView({
           <PlayerList
             players={state.players}
             currentPlayerIndex={state.currentPlayerIndex}
-            myId={playerId}
-            hostId={state.hostId}
+            myId={isLocal ? undefined : playerId}
+            hostId={isLocal ? undefined : state.hostId}
             status={state.status}
           />
         </div>
@@ -471,7 +506,7 @@ export function GameView({
           <button
             type="button"
             onClick={copyLink}
-            className="w-full mt-2 py-2 rounded-xl text-sm border border-[var(--color-border)] hover:border-[var(--color-board)] hover:bg-[var(--color-board-light)] text-[var(--color-ink-muted)] transition-colors"
+            className={`w-full mt-2 py-2 rounded-xl text-sm border border-[var(--color-border)] hover:border-[var(--color-board)] hover:bg-[var(--color-board-light)] text-[var(--color-ink-muted)] transition-colors ${isLocal ? "hidden" : ""}`}
           >
             {linkCopied ? "Ссылка скопирована" : "Копировать ссылку"}
           </button>

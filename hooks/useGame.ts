@@ -7,6 +7,7 @@ export interface GameViewState {
   id: string;
   status: "waiting" | "playing" | "finished";
   hostId: string;
+  matchType?: "friends" | "bot" | "open" | "local";
   maxPlayers: number;
   currentPlayerIndex: number;
   winnerId: string | null;

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { GameView } from "@/components/GameView";
 import { useGame } from "@/hooks/useGame";
-import { loadSession, saveSession } from "@/lib/session";
+import { loadSession, saveSession, updateSessionPlayerId } from "@/lib/session";
 
 const inputClass =
   "w-full px-5 py-4 rounded-xl bg-white border border-[var(--color-border)] text-[var(--color-ink)] placeholder:text-[var(--color-ink-faint)] focus:outline-none focus:border-[var(--color-board)] focus:ring-2 focus:ring-[var(--color-board-light)] text-center text-lg";
@@ -17,6 +17,10 @@ export default function GamePage() {
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [isLocalGame, setIsLocalGame] = useState(false);
+  const [handoffReady, setHandoffReady] = useState(false);
+  const lastTurnIndexRef = useRef<number | null>(null);
+  const movesCountRef = useRef(0);
 
   const { state, error, loading, join, start, updateSettings, place, exchange, pass, surrender } = useGame(
     gameId,
@@ -28,6 +32,7 @@ export default function GamePage() {
     if (session) {
       setPlayerId(session.playerId);
       setJoinName(session.playerName);
+      if (session.isLocal) setIsLocalGame(true);
     } else {
       const pending = sessionStorage.getItem("erudit_pending_name");
       if (pending) {
@@ -37,6 +42,36 @@ export default function GamePage() {
     }
     setInitialized(true);
   }, [gameId]);
+
+  useEffect(() => {
+    if (state?.matchType === "local") {
+      setIsLocalGame(true);
+    }
+  }, [state?.matchType]);
+
+  useEffect(() => {
+    if (!isLocalGame || !state || state.status !== "playing") return;
+
+    const turnIndex = state.currentPlayerIndex;
+    if (lastTurnIndexRef.current === turnIndex) return;
+
+    lastTurnIndexRef.current = turnIndex;
+    const currentPlayer = state.players[turnIndex];
+    if (!currentPlayer) return;
+
+    setHandoffReady(false);
+    setPlayerId(currentPlayer.id);
+    updateSessionPlayerId(gameId, currentPlayer.id, currentPlayer.name);
+  }, [isLocalGame, state, gameId]);
+
+  useEffect(() => {
+    if (!isLocalGame || !state) return;
+    const count = state.moves.length;
+    if (count > movesCountRef.current) {
+      movesCountRef.current = count;
+      setHandoffReady(false);
+    }
+  }, [isLocalGame, state?.moves.length, state]);
 
   const handleJoin = async () => {
     if (!joinName.trim()) {
@@ -80,7 +115,7 @@ export default function GamePage() {
     );
   }
 
-  if (!playerId && state) {
+  if (!playerId && state && !isLocalGame) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] px-4">
         <div className="w-full max-w-sm space-y-4">
@@ -119,6 +154,9 @@ export default function GamePage() {
     <GameView
       state={state}
       playerId={playerId}
+      isLocal={isLocalGame}
+      handoffReady={handoffReady}
+      onHandoffReady={() => setHandoffReady(true)}
       onPlace={place}
       onExchange={exchange}
       onPass={pass}

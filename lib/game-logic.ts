@@ -116,6 +116,24 @@ export function createOpenGame(
   };
 }
 
+export function createLocalGame(
+  playerNames: string[],
+  settings?: Partial<GameSettings>
+): GameState {
+  const names = playerNames.map((n, i) => n.trim().slice(0, 20) || `Игрок ${i + 1}`);
+  if (names.length < MIN_PLAYERS || names.length > MAX_PLAYERS) {
+    throw new Error(`Нужно от ${MIN_PLAYERS} до ${MAX_PLAYERS} игроков`);
+  }
+
+  let state = createGame(names[0]!, names.length, settings, "local");
+  for (let i = 1; i < names.length; i++) {
+    const result = joinGame(state, names[i]!);
+    state = result.state;
+  }
+
+  return startGame(state, state.hostId);
+}
+
 export function updateGameSettings(
   state: GameState,
   hostId: string,

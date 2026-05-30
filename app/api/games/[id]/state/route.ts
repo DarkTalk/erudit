@@ -39,6 +39,7 @@ function sanitizeForLobby(state: GameState) {
     id: state.id,
     status: state.status,
     hostId: state.hostId,
+    matchType: state.matchType,
     maxPlayers: state.maxPlayers,
     currentPlayerIndex: state.currentPlayerIndex,
     winnerId: state.winnerId,

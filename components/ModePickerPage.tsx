@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { HomeDemoBoard } from "@/components/HomeDemoBoard";
 
-type ModeIconName = "friends" | "bot" | "open";
+type ModeIconName = "friends" | "bot" | "open" | "local";
 
 const MODES: {
   href: string;
@@ -16,6 +16,12 @@ const MODES: {
     title: "Играть с друзьями",
     description: "Создайте комнату и пригласите друзей по ссылке",
     icon: "friends",
+  },
+  {
+    href: "/play/local",
+    title: "За одним устройством",
+    description: "Ходы по очереди на одном экране — от 2 до 4 игроков",
+    icon: "local",
   },
   {
     href: "/play/bot",
@@ -66,8 +72,8 @@ export function ModePickerPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-6 pt-4">
           <Feature
-            title="3 режима игры"
-            desc="С друзьями, против бота, случайный соперник"
+            title="4 режима игры"
+            desc="С друзьями, на одном устройстве, против бота, случайный соперник"
           />
           <Feature title="51 000 слов" desc="Большой словарь существительных" />
           <Feature title="Онлайн" desc="Игра в реальном времени" />
@@ -78,9 +84,9 @@ export function ModePickerPage() {
         <section className="text-left space-y-4 pt-2">
           <p className="text-sm text-[var(--color-ink-muted)] leading-relaxed">
             На нашем сайте вы сможете поиграть в настольную игру Эрудит бесплатно и без
-            регистрации, достаточно ввести только имя. Есть 3 режима игры: можно играть с
-            друзьями по ссылке, сразиться со случайным соперником или сыграть против
-            компьютера (есть 3 уровня сложности).
+            регистрации, достаточно ввести только имя. Есть 4 режима игры: можно играть с
+            друзьями по ссылке, за одним устройством, сразиться со случайным соперником или
+            сыграть против компьютера (есть 3 уровня сложности).
           </p>
           <p className="text-sm text-[var(--color-ink-muted)] leading-relaxed">
             Также можно настроить режим игры: по правилам кроссворда или обычный. В обычном
@@ -144,6 +150,12 @@ function ModeIcon({ name }: { name: ModeIconName }) {
             <circle cx="12" cy="12" r="10" />
             <path d="M2 12h20" />
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </>
+        )}
+        {name === "local" && (
+          <>
+            <rect x="7" y="2" width="10" height="20" rx="2" />
+            <path d="M11 18h2" />
           </>
         )}
       </svg>

@@ -18,7 +18,7 @@ export interface RackTile {
   isBlank?: boolean;
 }
 
-export type MatchType = "friends" | "bot" | "open";
+export type MatchType = "friends" | "bot" | "open" | "local";
 export type BotDifficulty = "easy" | "medium" | "hard";
 
 export interface Player {
@@ -79,6 +79,7 @@ export interface GameState {
 export interface CreateGameRequest {
   playerName: string;
   maxPlayers?: number;
+  playerNames?: string[];
   settings?: Partial<GameSettings>;
   matchType?: MatchType;
   botDifficulty?: BotDifficulty;
