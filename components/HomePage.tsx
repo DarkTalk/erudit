@@ -3,9 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-const inputClass =
-  "w-full px-5 py-4 rounded-xl bg-white border border-[var(--color-border)] text-[var(--color-ink)] placeholder:text-[var(--color-ink-faint)] focus:outline-none focus:border-[var(--color-board)] focus:ring-2 focus:ring-[var(--color-board-light)] transition-all text-center text-lg";
-
 export function HomePage() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -56,62 +53,64 @@ export function HomePage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
-      <div className="text-center mb-10 max-w-lg">
-        <h1 className="text-5xl sm:text-6xl font-bold font-serif text-[var(--color-board)] tracking-tight">
-          Эрудит
-        </h1>
-        <p className="text-[var(--color-ink-muted)] mt-3 text-lg leading-relaxed">
-          Составляйте слова, набирайте очки и играйте с друзьями по одной ссылке
-        </p>
-      </div>
+    <div className="flex flex-col items-center justify-start min-h-[calc(100dvh-73px)] pt-4 pb-8">
+      <div className="w-full max-w-sm text-center space-y-10">
+        <div>
+          <h1 className="text-[clamp(2.75rem,8vw,3.75rem)] font-bold font-serif text-[var(--color-board)] tracking-tight leading-tight">
+            Эрудит
+          </h1>
+          <p className="text-[var(--color-ink-muted)] mt-3 text-base leading-relaxed">
+            Составляйте слова, набирайте очки и играйте с друзьями по одной ссылке
+          </p>
+        </div>
 
-      <div className="w-full max-w-sm space-y-3">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !gameCode.trim() && createGame()}
-          placeholder="Ваше имя"
-          maxLength={20}
-          className={inputClass}
-        />
+        <div className="space-y-3 text-left">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !gameCode.trim() && createGame()}
+            placeholder="Ваше имя"
+            maxLength={20}
+            className="w-full px-4 py-3.5 rounded-xl bg-white text-[var(--color-ink)] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] placeholder:text-[var(--color-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--color-board)]/15 transition-shadow"
+          />
 
-        <input
-          type="text"
-          value={gameCode}
-          onChange={(e) => setGameCode(e.target.value.toUpperCase())}
-          onKeyDown={(e) => e.key === "Enter" && joinGame()}
-          placeholder="Код игры (для входа)"
-          maxLength={12}
-          className={`${inputClass} text-base tracking-widest font-mono`}
-        />
+          <input
+            type="text"
+            value={gameCode}
+            onChange={(e) => setGameCode(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === "Enter" && joinGame()}
+            placeholder="Код игры (для входа)"
+            maxLength={12}
+            className="w-full px-4 py-3.5 rounded-xl bg-white text-[var(--color-ink)] font-mono tracking-widest uppercase shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:text-[var(--color-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--color-board)]/15 transition-shadow"
+          />
 
-        <button
-          type="button"
-          onClick={createGame}
-          disabled={loading}
-          className="w-full py-4 rounded-xl bg-[var(--color-board)] text-white font-semibold text-lg hover:bg-[var(--color-board-hover)] transition-colors disabled:opacity-50"
-        >
-          {loading ? "Создание..." : "Создать игру"}
-        </button>
+          <button
+            type="button"
+            onClick={createGame}
+            disabled={loading}
+            className="w-full py-3.5 rounded-xl bg-[var(--color-board)] text-white font-semibold hover:bg-[var(--color-board-hover)] transition-colors disabled:opacity-40"
+          >
+            {loading ? "Создание..." : "Создать игру"}
+          </button>
 
-        <button
-          type="button"
-          onClick={joinGame}
-          disabled={loading}
-          className="w-full py-4 rounded-xl bg-white border border-[var(--color-border)] text-[var(--color-ink)] font-semibold text-lg hover:border-[var(--color-board)] hover:bg-[var(--color-board-light)] transition-colors disabled:opacity-50"
-        >
-          Присоединиться к игре
-        </button>
+          <button
+            type="button"
+            onClick={joinGame}
+            disabled={loading}
+            className="w-full py-3.5 rounded-xl bg-white text-[var(--color-board)] font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:bg-[var(--color-board-light)] transition-colors disabled:opacity-40"
+          >
+            Присоединиться к игре
+          </button>
 
-        {error && <p className="text-red-600 text-sm text-center">{error}</p>}
-      </div>
+          {error && <p className="text-red-600 text-sm text-center pt-1">{error}</p>}
+        </div>
 
-      <div className="mt-16 grid grid-cols-3 gap-8 text-center max-w-xl">
-        <Feature title="По ссылке" desc="Пригласите друзей одной ссылкой" />
-        <Feature title="51K+ слов" desc="Большой словарь существительных" />
-        <Feature title="Онлайн" desc="Игра в реальном времени" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-6 pt-4">
+          <Feature title="По ссылке" desc="Пригласите друзей одной ссылкой" />
+          <Feature title="51 000 слов" desc="Большой словарь существительных" />
+          <Feature title="Онлайн" desc="Игра в реальном времени" />
+        </div>
       </div>
     </div>
   );
@@ -120,8 +119,8 @@ export function HomePage() {
 function Feature({ title, desc }: { title: string; desc: string }) {
   return (
     <div>
-      <p className="text-[var(--color-ink)] font-semibold text-sm">{title}</p>
-      <p className="text-[var(--color-ink-muted)] text-xs mt-1.5 leading-relaxed">{desc}</p>
+      <p className="font-bold text-[0.9375rem] text-[var(--color-ink)]">{title}</p>
+      <p className="mt-1.5 text-[0.8125rem] text-[var(--color-ink-faint)] leading-relaxed">{desc}</p>
     </div>
   );
 }

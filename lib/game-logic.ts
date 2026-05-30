@@ -135,25 +135,43 @@ function applyPlacements(
   return newBoard;
 }
 
-function placementsAreStraight(placements: PendingPlacement[]): boolean {
+/** All new tiles in one row or column; no gaps between min..max (existing tiles count). */
+function placementsFormValidLine(
+  board: BoardCell[][],
+  placements: PendingPlacement[]
+): boolean {
   if (placements.length === 0) return false;
-  if (placements.length === 1) return true;
 
+  const placementSet = new Set(placements.map((p) => `${p.row},${p.col}`));
   const rows = new Set(placements.map((p) => p.row));
   const cols = new Set(placements.map((p) => p.col));
 
   if (rows.size === 1) {
-    const colsArr = placements.map((p) => p.col).sort((a, b) => a - b);
-    for (let i = 1; i < colsArr.length; i++) {
-      if (colsArr[i] - colsArr[i - 1] !== 1) return false;
+    const row = placements[0].row;
+    const allCols = [
+      ...placements.map((p) => p.col),
+      ...board[row]
+        .map((_, c) => c)
+        .filter((c) => board[row][c].tile),
+    ];
+    const min = Math.min(...allCols);
+    const max = Math.max(...allCols);
+    for (let c = min; c <= max; c++) {
+      if (!board[row][c].tile && !placementSet.has(`${row},${c}`)) return false;
     }
     return true;
   }
 
   if (cols.size === 1) {
-    const rowsArr = placements.map((p) => p.row).sort((a, b) => a - b);
-    for (let i = 1; i < rowsArr.length; i++) {
-      if (rowsArr[i] - rowsArr[i - 1] !== 1) return false;
+    const col = placements[0].col;
+    const allRows = [
+      ...placements.map((p) => p.row),
+      ...board.map((_, r) => r).filter((r) => board[r][col].tile),
+    ];
+    const min = Math.min(...allRows);
+    const max = Math.max(...allRows);
+    for (let r = min; r <= max; r++) {
+      if (!board[r][col].tile && !placementSet.has(`${r},${col}`)) return false;
     }
     return true;
   }
@@ -181,43 +199,6 @@ function placementsConnectedToExisting(
     }
   }
   return false;
-}
-
-function noGapsInLine(
-  board: BoardCell[][],
-  placements: PendingPlacement[]
-): boolean {
-  const placementSet = new Set(placements.map((p) => `${p.row},${p.col}`));
-  const rows = placements.map((p) => p.row);
-  const cols = placements.map((p) => p.col);
-  const sameRow = new Set(rows).size === 1;
-  const sameCol = new Set(cols).size === 1;
-
-  if (sameRow) {
-    const row = rows[0];
-    const allCols = [
-      ...board[row].map((_, c) => c).filter((c) => board[row][c].tile || placementSet.has(`${row},${c}`)),
-      ...placements.map((p) => p.col),
-    ];
-    const min = Math.min(...allCols);
-    const max = Math.max(...allCols);
-    for (let c = min; c <= max; c++) {
-      if (!board[row][c].tile && !placementSet.has(`${row},${c}`)) return false;
-    }
-  } else if (sameCol) {
-    const col = cols[0];
-    const allRows = [
-      ...board.map((_, r) => r).filter((r) => board[r][col].tile || placementSet.has(`${r},${col}`)),
-      ...placements.map((p) => p.row),
-    ];
-    const min = Math.min(...allRows);
-    const max = Math.max(...allRows);
-    for (let r = min; r <= max; r++) {
-      if (!board[r][col].tile && !placementSet.has(`${r},${col}`)) return false;
-    }
-  }
-
-  return true;
 }
 
 function extractWords(board: BoardCell[][]): { word: string; cells: [number, number][] }[] {
@@ -377,11 +358,12 @@ export function placeTiles(
     }
   }
 
-  if (!placementsAreStraight(placements)) throw new Error("Фишки должны быть в одну линию");
+  if (!placementsFormValidLine(state.board, placements)) {
+    throw new Error("Фишки должны быть в одну линию без пробелов");
+  }
   if (!placementsConnectedToExisting(state.board, placements)) {
     throw new Error("Первый ход — через центральную звезду, далее — к существующим словам");
   }
-  if (!noGapsInLine(state.board, placements)) throw new Error("Между фишками не должно быть пробелов");
 
   const tempBoard = applyPlacements(state.board, placements, rackById, blankLetters);
   const allWords = extractWords(tempBoard);

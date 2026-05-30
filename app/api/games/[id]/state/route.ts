@@ -75,7 +75,7 @@ function sanitizeForPlayer(state: GameState, playerId: string) {
 
   return {
     ...sanitizeForLobby(state),
-    myRack: isMyTurn || state.status === "waiting" ? me.rack : me.rack.map((t) => ({ id: t.id, hidden: true })),
+    myRack: me.rack,
     isMyTurn,
     isHost: state.hostId === playerId,
   };

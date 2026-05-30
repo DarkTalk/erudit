@@ -1,31 +1,82 @@
 @import "tailwindcss";
 
 @theme {
-  --font-serif: "Georgia", "Times New Roman", serif;
-  --color-paper: #f7f5f0;
+  --font-serif: var(--font-playfair), "Georgia", "Times New Roman", serif;
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
+  --color-paper: #f5f0e8;
   --color-paper-deep: #efe9df;
-  --color-ink: #1c1917;
-  --color-ink-muted: #78716c;
-  --color-ink-faint: #a8a29e;
-  --color-border: #e7e5e4;
-  --color-board: #2d5a3d;
-  --color-board-hover: #234a32;
-  --color-board-light: #e8f0eb;
-  --color-tile: #d4a574;
+  --color-ink: #2c2418;
+  --color-ink-muted: #6b5f52;
+  --color-ink-faint: #9a8f82;
+  --color-border: #ddd0bb;
+  --color-board: #3d2f1e;
+  --color-board-hover: #2a2116;
+  --color-board-light: #f0e8dc;
+  --color-tile: #9a5a3a;
+  --color-cell: #ede7d9;
+  --color-cell-border: #ddd5c5;
 }
 
 body {
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-sans);
   color: var(--color-ink);
   background-color: var(--color-paper);
 }
 
 ::selection {
-  background: rgba(45, 90, 61, 0.2);
+  background: rgba(154, 90, 58, 0.18);
+}
+
+/* Linen / paper grain on the game board container */
+.board-linen {
+  position: relative;
+  isolation: isolate;
+}
+
+.board-linen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.045;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes tile-place {
+  0% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-tile-place {
+  animation: tile-place 120ms ease-out;
+}
+
+@keyframes rack-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rack-tile-in {
+  animation: rack-tile-in 220ms ease-out backwards;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-spin {

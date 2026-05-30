@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Nunito, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const nunito = Nunito({
+  variable: "--font-dm-sans",
   subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin", "cyrillic"],
+  weight: ["600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -25,14 +27,14 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[var(--color-paper)] text-[var(--color-ink)]`}
+        className={`${nunito.variable} ${playfair.variable} antialiased min-h-screen bg-[var(--color-paper)] text-[var(--color-ink)] font-sans`}
       >
         <div className="min-h-screen relative overflow-x-hidden">
-          <header className="relative z-10 border-b border-[var(--color-border)] bg-white/70 backdrop-blur-sm">
+          <header className="relative z-10 bg-[var(--color-paper)]">
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <a
                 href="/"
-                className="text-xl font-bold font-serif text-[var(--color-board)] hover:text-[var(--color-board-hover)] transition-colors tracking-tight"
+                className="text-xl font-semibold font-serif text-[var(--color-board)] hover:text-[var(--color-board-hover)] transition-colors tracking-tight"
               >
                 Эрудит
               </a>

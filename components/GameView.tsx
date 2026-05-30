@@ -54,21 +54,38 @@ export function GameView({
     [myRack]
   );
 
+  const returnToRack = useCallback((tileId: string) => {
+    const existing = pending.find((p) => p.tileId === tileId);
+    if (!existing) return;
+
+    setPending((p) => p.filter((x) => x.tileId !== tileId));
+    if (existing.isBlank) {
+      setBlankLetters((prev) => {
+        const next = { ...prev };
+        delete next[tileId];
+        return next;
+      });
+    }
+    setSelectedTileId((prev) => (prev === tileId ? null : prev));
+  }, [pending]);
+
   const placeTile = useCallback(
     (row: number, col: number, tileId: string) => {
       if (!state.isMyTurn) return;
       if (state.board[row][col].tile) return;
 
-      const existing = pending.find((p) => p.row === row && p.col === col);
-      if (existing) {
-        setPending((p) => p.filter((x) => !(x.row === row && x.col === col)));
-        if (existing.isBlank) {
-          setBlankLetters((prev) => {
-            const next = { ...prev };
-            delete next[existing.tileId];
-            return next;
-          });
-        }
+      const existingAtCell = pending.find((p) => p.row === row && p.col === col);
+      if (existingAtCell) {
+        if (existingAtCell.tileId === tileId) return;
+        return;
+      }
+
+      const existingById = pending.find((p) => p.tileId === tileId);
+      if (existingById) {
+        setPending((p) =>
+          p.map((x) => (x.tileId === tileId ? { ...x, row, col } : x))
+        );
+        setSelectedTileId(null);
         return;
       }
 
@@ -102,6 +119,16 @@ export function GameView({
 
   const handleDrop = (row: number, col: number, tileId: string) => {
     placeTile(row, col, tileId);
+  };
+
+  const handleRackDrop = (tileId: string) => {
+    if (pending.some((p) => p.tileId === tileId)) {
+      returnToRack(tileId);
+    }
+  };
+
+  const handlePendingDragStart = (tileId: string) => (e: React.DragEvent) => {
+    e.dataTransfer.setData("tileId", tileId);
   };
 
   const handleTileClick = (tileId: string) => {
@@ -240,32 +267,36 @@ export function GameView({
           pending={pending}
           onCellClick={handleCellClick}
           onDrop={handleDrop}
+          onPendingDragStart={handlePendingDragStart}
+          onPendingClick={returnToRack}
           interactive={!!state.isMyTurn && !exchangeMode}
         />
 
-        {state.status === "playing" && state.isMyTurn && (
-          <TileRack
-            tiles={availableRack as { id: string; letter?: string; isBlank?: boolean }[]}
-            selectedIds={
-              exchangeMode
-                ? selectedExchange
-                : selectedTileId
-                  ? new Set([selectedTileId])
-                  : new Set()
-            }
-            exchangeMode={exchangeMode}
-            onTileClick={handleTileClick}
-            onTileDragStart={(id) => (e) => {
-              e.dataTransfer.setData("tileId", id);
-            }}
-            interactive
-          />
-        )}
-
-        {state.status === "playing" && !state.isMyTurn && (
-          <div className="text-center text-[var(--color-ink-muted)] py-4">
-            Ход игрока {state.players[state.currentPlayerIndex]?.name}...
-          </div>
+        {state.status === "playing" && (
+          <>
+            <TileRack
+              tiles={availableRack as { id: string; letter?: string; isBlank?: boolean }[]}
+              selectedIds={
+                exchangeMode
+                  ? selectedExchange
+                  : selectedTileId
+                    ? new Set([selectedTileId])
+                    : new Set()
+              }
+              exchangeMode={exchangeMode}
+              onTileClick={handleTileClick}
+              onTileDragStart={(id) => (e) => {
+                e.dataTransfer.setData("tileId", id);
+              }}
+              onDrop={handleRackDrop}
+              interactive={!!state.isMyTurn && !exchangeMode}
+            />
+            {!state.isMyTurn && (
+              <div className="text-center text-[var(--color-ink-muted)] py-1">
+                Ход игрока {state.players[state.currentPlayerIndex]?.name}...
+              </div>
+            )}
+          </>
         )}
 
         {state.status === "finished" && winner && (

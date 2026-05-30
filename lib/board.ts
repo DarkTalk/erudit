@@ -26,22 +26,53 @@ export function createEmptyBoard(): BoardCell[][] {
 
 export function bonusLabel(bonus: BonusType | null): string {
   switch (bonus) {
-    case "TW": return "×3";
-    case "DW": return "×2";
-    case "TL": return "+3";
-    case "DL": return "+2";
-    case "STAR": return "★";
-    default: return "";
+    case "TW":
+      return "×3";
+    case "DW":
+      return "×2";
+    case "TL":
+      return "+3";
+    case "DL":
+      return "+2";
+    case "STAR":
+      return "★";
+    default:
+      return "";
   }
 }
 
+/** Background for empty cells (Cream & Wood palette). */
 export function bonusColor(bonus: BonusType | null): string {
   switch (bonus) {
-    case "TW": return "bg-rose-600/80";
-    case "DW": return "bg-pink-500/70";
-    case "TL": return "bg-sky-600/80";
-    case "DL": return "bg-teal-500/70";
-    case "STAR": return "bg-amber-500/80";
-    default: return "bg-emerald-900/40";
+    case "TW":
+      return "bg-[#e8c5b0]";
+    case "DW":
+      return "bg-[#e8b8c8]";
+    case "TL":
+      return "bg-[#b8d8e8]";
+    case "DL":
+      return "bg-[#b8e0d8]";
+    case "STAR":
+      return "bg-[#e8c5b0]";
+    default:
+      return "bg-[#ede7d9]";
+  }
+}
+
+/** Muted label text on bonus squares. */
+export function bonusLabelColor(bonus: BonusType | null): string {
+  switch (bonus) {
+    case "TW":
+      return "text-[#9a5a3a]";
+    case "DW":
+      return "text-[#8a3a58]";
+    case "TL":
+      return "text-[#2a6a8a]";
+    case "DL":
+      return "text-[#2a7a6a]";
+    case "STAR":
+      return "text-[#9a5a3a]";
+    default:
+      return "text-[#a89a88]";
   }
 }

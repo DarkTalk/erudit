@@ -20,7 +20,7 @@ export function LetterPicker({ onSelect, onCancel }: LetterPickerProps) {
               key={letter}
               type="button"
               onClick={() => onSelect(letter)}
-              className="aspect-square rounded-lg bg-amber-100 text-amber-950 font-serif font-bold text-sm hover:bg-amber-200 transition-colors border border-amber-200"
+              className="aspect-square rounded-[4px] bg-[#3d2f1e] text-[#f5e8d0] font-serif font-semibold text-sm shadow-[0_2px_0_#1a100a] hover:-translate-y-0.5 hover:shadow-[0_4px_0_#1a100a] transition-[transform,box-shadow] duration-150"
             >
               {letter.toUpperCase()}
             </button>

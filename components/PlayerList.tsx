@@ -23,10 +23,10 @@ export function PlayerList({ players, currentPlayerIndex, myId, status }: Player
         return (
           <div
             key={player.id}
-            className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
+            className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all font-medium ${
               isCurrent
-                ? "bg-[var(--color-board-light)] border border-[var(--color-board)]"
-                : "bg-[var(--color-paper)] border border-[var(--color-border)]"
+                ? "bg-[#f0e8dc] border border-[#c4b5a0] shadow-sm"
+                : "bg-[#faf6f0] border border-[var(--color-border)]"
             }`}
           >
             <div className="flex items-center gap-3">
@@ -35,14 +35,14 @@ export function PlayerList({ players, currentPlayerIndex, myId, status }: Player
                   player.connected ? "bg-emerald-600" : "bg-stone-300"
                 }`}
               />
-              <span className="font-medium text-[var(--color-ink)]">
+              <span className="text-[var(--color-ink)]">
                 {player.name}
-                {isMe && <span className="text-[var(--color-board)] text-sm ml-1 font-normal">(вы)</span>}
+                {isMe && <span className="text-[var(--color-tile)] text-sm ml-1 font-normal">(вы)</span>}
               </span>
             </div>
             <div className="flex items-center gap-4 text-sm">
               <span className="text-[var(--color-ink-muted)]">{player.rackCount} фиш.</span>
-              <span className="font-bold text-[var(--color-tile)] tabular-nums">{player.score}</span>
+              <span className="font-semibold text-[var(--color-board)] tabular-nums">{player.score}</span>
             </div>
           </div>
         );

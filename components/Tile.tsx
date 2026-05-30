@@ -6,6 +6,7 @@ interface TileProps {
   isBlank?: boolean;
   points?: number;
   size?: "sm" | "md" | "lg";
+  variant?: "rack" | "board";
   selected?: boolean;
   disabled?: boolean;
   onClick?: () => void;
@@ -19,6 +20,7 @@ export function Tile({
   isBlank,
   points,
   size = "md",
+  variant = "rack",
   selected,
   disabled,
   onClick,
@@ -28,11 +30,12 @@ export function Tile({
 }: TileProps) {
   const displayLetter = isBlank && letter === "?" ? "" : letter.toUpperCase();
   const pts = points ?? (isBlank ? 0 : tilePoints(letter));
+  const isRack = variant === "rack";
 
   const sizeClasses = {
-    sm: "w-7 h-7 text-xs",
+    sm: "w-7 h-7 text-[clamp(8px,2vw,14px)]",
     md: "w-10 h-10 text-sm",
-    lg: "w-12 h-12 text-base",
+    lg: "w-12 h-12 text-lg",
   };
 
   return (
@@ -43,21 +46,32 @@ export function Tile({
       onDragStart={onDragStart}
       onClick={onClick}
       className={clsx(
-        "relative flex items-center justify-center rounded-md font-serif font-bold",
-        "bg-gradient-to-b from-amber-100 to-amber-300 text-amber-950",
-        "border-2 border-amber-400/60 shadow-md",
-        "transition-all duration-150 select-none",
+        "relative flex items-center justify-center rounded-[4px] font-serif font-semibold",
+        "bg-[#3d2f1e] text-[#f5e8d0]",
+        "shadow-[0_2px_0_#1a100a]",
+        "transition-[transform,box-shadow] duration-150 ease-out select-none",
         sizeClasses[size],
-        selected && "ring-2 ring-[var(--color-board)] scale-105 -translate-y-1 shadow-lg",
-        !disabled && onClick && "hover:scale-105 hover:-translate-y-0.5 hover:shadow-lg cursor-pointer",
-        disabled && "opacity-60 cursor-default",
-        isBlank && "from-stone-100 to-stone-300 border-stone-400/60",
+        variant === "board" && "animate-tile-place !cursor-default",
+        isRack &&
+          !disabled &&
+          onClick &&
+          "hover:-translate-y-0.5 hover:shadow-[0_4px_0_#1a100a] cursor-pointer",
+        selected &&
+          isRack &&
+          "ring-2 ring-[#9a5a3a]/50 -translate-y-0.5 shadow-[0_4px_0_#1a100a]",
+        isBlank && "bg-[#4a3d2c] text-[#e8dcc8]",
         className
       )}
     >
-      <span className="leading-none">{displayLetter}</span>
+      <span className="leading-none tracking-wide">{displayLetter}</span>
       {pts > 0 && (
-        <span className="absolute bottom-0.5 right-0.5 text-[8px] font-sans font-semibold opacity-70">
+        <span
+          className={clsx(
+            "absolute font-sans font-medium leading-none pointer-events-none",
+            "text-[#f5e8d0]/45",
+            size === "sm" ? "bottom-[2px] right-[2px] text-[6px]" : "bottom-0.5 right-0.5 text-[8px]"
+          )}
+        >
           {pts}
         </span>
       )}
