@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BackLink } from "@/components/BackLink";
 import { defaultGameSettings, GameSettingsPanel } from "@/components/GameSettingsPanel";
 import { HomeDemoBoard } from "@/components/HomeDemoBoard";
 import type { GameSettings } from "@/lib/types";
@@ -59,6 +60,7 @@ export function HomePage() {
   return (
     <div className="flex flex-col items-center justify-start min-h-[calc(100dvh-73px)] pt-4 pb-8">
       <div className="w-full max-w-md text-center space-y-10">
+        <BackLink />
         <div>
           <h1 className="text-[clamp(2.75rem,8vw,3.75rem)] font-bold font-serif text-[var(--color-board)] tracking-tight leading-tight">
             Эрудит

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { processBotTurns } from "@/lib/bot";
 import {
   exchangeTiles,
   passTurn,
   placeTiles,
   surrender,
 } from "@/lib/game-logic";
-import { updateGame } from "@/lib/store";
+import { loadGame, updateGame } from "@/lib/store";
 
 export async function POST(
   request: Request,
@@ -36,6 +37,8 @@ export async function POST(
           throw new Error("Неизвестное действие");
       }
     });
+
+    await processBotTurns(id, loadGame, updateGame);
 
     return NextResponse.json({ ok: true });
   } catch (e) {

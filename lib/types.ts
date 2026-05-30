@@ -18,6 +18,9 @@ export interface RackTile {
   isBlank?: boolean;
 }
 
+export type MatchType = "friends" | "bot" | "open";
+export type BotDifficulty = "easy" | "medium" | "hard";
+
 export interface Player {
   id: string;
   name: string;
@@ -25,6 +28,7 @@ export interface Player {
   rack: RackTile[];
   connected: boolean;
   lastSeen: number;
+  isBot?: boolean;
 }
 
 export interface PendingPlacement {
@@ -65,6 +69,9 @@ export interface GameState {
   winnerId: string | null;
   maxPlayers: number;
   settings: GameSettings;
+  matchType: MatchType;
+  isPublic?: boolean;
+  botDifficulty?: BotDifficulty;
   /** Слово на доске при старте (если startingWord), видно всем после начала */
   initialWord?: string;
 }
@@ -73,6 +80,16 @@ export interface CreateGameRequest {
   playerName: string;
   maxPlayers?: number;
   settings?: Partial<GameSettings>;
+  matchType?: MatchType;
+  botDifficulty?: BotDifficulty;
+}
+
+export interface OpenGameSummary {
+  id: string;
+  hostName: string;
+  playerCount: number;
+  maxPlayers: number;
+  createdAt: number;
 }
 
 export interface UpdateGameSettingsRequest {

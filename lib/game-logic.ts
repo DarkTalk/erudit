@@ -16,6 +16,8 @@ import {
   type GameMove,
   type GameSettings,
   type GameState,
+  type MatchType,
+  type BotDifficulty,
   type PendingPlacement,
   type PlacedTile,
   type Player,
@@ -36,7 +38,8 @@ function normalizeSettings(partial?: Partial<GameSettings>): GameSettings {
 export function createGame(
   hostName: string,
   maxPlayers = 4,
-  settings?: Partial<GameSettings>
+  settings?: Partial<GameSettings>,
+  matchType: MatchType = "friends"
 ): GameState {
   const hostId = nanoid(10);
   const gameSettings = normalizeSettings(settings);
@@ -48,6 +51,7 @@ export function createGame(
     createdAt: Date.now(),
     status: "waiting",
     hostId,
+    matchType,
     players: [
       {
         id: hostId,
@@ -66,6 +70,49 @@ export function createGame(
     winnerId: null,
     maxPlayers: Math.min(Math.max(maxPlayers, MIN_PLAYERS), MAX_PLAYERS),
     settings: gameSettings,
+  };
+}
+
+const BOT_NAMES: Record<BotDifficulty, string> = {
+  easy: "Бот (простой)",
+  medium: "Бот (средний)",
+  hard: "Бот (сложный)",
+};
+
+export function createBotGame(
+  hostName: string,
+  difficulty: BotDifficulty,
+  settings?: Partial<GameSettings>
+): GameState {
+  const botId = nanoid(10);
+  let state = createGame(hostName, 2, settings, "bot");
+  state = {
+    ...state,
+    maxPlayers: 2,
+    botDifficulty: difficulty,
+    players: [
+      state.players[0]!,
+      {
+        id: botId,
+        name: BOT_NAMES[difficulty],
+        score: 0,
+        rack: [],
+        connected: true,
+        lastSeen: Date.now(),
+        isBot: true,
+      },
+    ],
+  };
+  return startGame(state, state.hostId);
+}
+
+export function createOpenGame(
+  hostName: string,
+  settings?: Partial<GameSettings>
+): GameState {
+  return {
+    ...createGame(hostName, 4, settings, "open"),
+    isPublic: true,
   };
 }
 
@@ -229,9 +276,8 @@ function applyPlacements(
 }
 
 /**
- * New tiles in one row or column, contiguous among themselves.
- * May attach to existing tiles only at the ends of that run (Scrabble-style).
- * Unrelated letters elsewhere on the same row/column are ignored.
+ * All new tiles in one row or column; the full word run (including existing tiles
+ * between new placements) must have no gaps.
  */
 function placementsFormValidLine(
   board: BoardCell[][],
@@ -246,9 +292,6 @@ function placementsFormValidLine(
   if (rows.size === 1) {
     const row = placements[0].row;
     const pCols = placements.map((p) => p.col).sort((a, b) => a - b);
-    for (let i = 1; i < pCols.length; i++) {
-      if (pCols[i] - pCols[i - 1] !== 1) return false;
-    }
     let min = pCols[0];
     let max = pCols[pCols.length - 1];
     while (min > 0 && board[row][min - 1].tile) min--;
@@ -262,9 +305,6 @@ function placementsFormValidLine(
   if (cols.size === 1) {
     const col = placements[0].col;
     const pRows = placements.map((p) => p.row).sort((a, b) => a - b);
-    for (let i = 1; i < pRows.length; i++) {
-      if (pRows[i] - pRows[i - 1] !== 1) return false;
-    }
     let min = pRows[0];
     let max = pRows[pRows.length - 1];
     while (min > 0 && board[min - 1][col].tile) min--;

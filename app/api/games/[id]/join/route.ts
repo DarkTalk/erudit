@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { joinGame, startGame, updateGameSettings } from "@/lib/game-logic";
-import { updateGame } from "@/lib/store";
+import { unregisterOpenGame, updateGame } from "@/lib/store";
 import type { JoinGameRequest, UpdateGameSettingsRequest } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +44,7 @@ export async function POST(
       }
       case "start": {
         await updateGame(id, (state) => startGame(state, body.playerId));
+        await unregisterOpenGame(id);
         return NextResponse.json({ ok: true });
       }
       case "updateSettings": {

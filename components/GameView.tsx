@@ -273,6 +273,7 @@ export function GameView({
       <div className="max-w-xl mx-auto space-y-6">
         <LobbyCard
           gameId={state.id}
+          hostId={state.hostId}
           onCopyLink={copyLink}
           linkCopied={linkCopied}
           players={state.players}
@@ -451,6 +452,7 @@ export function GameView({
             players={state.players}
             currentPlayerIndex={state.currentPlayerIndex}
             myId={playerId}
+            hostId={state.hostId}
             status={state.status}
           />
         </div>
@@ -534,6 +536,7 @@ function ActionButton({
 
 function LobbyCard({
   gameId,
+  hostId,
   onCopyLink,
   linkCopied,
   players,
@@ -546,6 +549,7 @@ function LobbyCard({
   error,
 }: {
   gameId: string;
+  hostId: string;
   onCopyLink: () => void;
   linkCopied: boolean;
   players: GameViewState["players"];
@@ -606,6 +610,7 @@ function LobbyCard({
           players={players}
           currentPlayerIndex={0}
           status="waiting"
+          hostId={hostId}
         />
       </div>
 
