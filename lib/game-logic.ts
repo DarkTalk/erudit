@@ -135,7 +135,11 @@ function applyPlacements(
   return newBoard;
 }
 
-/** All new tiles in one row or column; no gaps between min..max (existing tiles count). */
+/**
+ * New tiles in one row or column, contiguous among themselves.
+ * May attach to existing tiles only at the ends of that run (Scrabble-style).
+ * Unrelated letters elsewhere on the same row/column are ignored.
+ */
 function placementsFormValidLine(
   board: BoardCell[][],
   placements: PendingPlacement[]
@@ -148,14 +152,14 @@ function placementsFormValidLine(
 
   if (rows.size === 1) {
     const row = placements[0].row;
-    const allCols = [
-      ...placements.map((p) => p.col),
-      ...board[row]
-        .map((_, c) => c)
-        .filter((c) => board[row][c].tile),
-    ];
-    const min = Math.min(...allCols);
-    const max = Math.max(...allCols);
+    const pCols = placements.map((p) => p.col).sort((a, b) => a - b);
+    for (let i = 1; i < pCols.length; i++) {
+      if (pCols[i] - pCols[i - 1] !== 1) return false;
+    }
+    let min = pCols[0];
+    let max = pCols[pCols.length - 1];
+    while (min > 0 && board[row][min - 1].tile) min--;
+    while (max < BOARD_SIZE - 1 && board[row][max + 1].tile) max++;
     for (let c = min; c <= max; c++) {
       if (!board[row][c].tile && !placementSet.has(`${row},${c}`)) return false;
     }
@@ -164,12 +168,14 @@ function placementsFormValidLine(
 
   if (cols.size === 1) {
     const col = placements[0].col;
-    const allRows = [
-      ...placements.map((p) => p.row),
-      ...board.map((_, r) => r).filter((r) => board[r][col].tile),
-    ];
-    const min = Math.min(...allRows);
-    const max = Math.max(...allRows);
+    const pRows = placements.map((p) => p.row).sort((a, b) => a - b);
+    for (let i = 1; i < pRows.length; i++) {
+      if (pRows[i] - pRows[i - 1] !== 1) return false;
+    }
+    let min = pRows[0];
+    let max = pRows[pRows.length - 1];
+    while (min > 0 && board[min - 1][col].tile) min--;
+    while (max < BOARD_SIZE - 1 && board[max + 1][col].tile) max++;
     for (let r = min; r <= max; r++) {
       if (!board[r][col].tile && !placementSet.has(`${r},${col}`)) return false;
     }

@@ -65,44 +65,48 @@ export function HomePage() {
           </p>
         </div>
 
-        <div className="space-y-3 text-left">
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !gameCode.trim() && createGame()}
-            placeholder="Ваше имя"
-            maxLength={20}
-            className="w-full px-4 py-3.5 rounded-xl bg-white text-[var(--color-ink)] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] placeholder:text-[var(--color-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--color-board)]/15 transition-shadow"
-          />
+        <div className="text-left">
+          <div className="space-y-3">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !gameCode.trim() && createGame()}
+              placeholder="Ваше имя"
+              maxLength={20}
+              className="w-full px-4 py-3.5 rounded-xl bg-white text-[var(--color-ink)] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] placeholder:text-[var(--color-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--color-board)]/15 transition-shadow"
+            />
 
-          <input
-            type="text"
-            value={gameCode}
-            onChange={(e) => setGameCode(e.target.value.toUpperCase())}
-            onKeyDown={(e) => e.key === "Enter" && joinGame()}
-            placeholder="Код игры (для входа)"
-            maxLength={12}
-            className="w-full px-4 py-3.5 rounded-xl bg-white text-[var(--color-ink)] font-mono tracking-widest uppercase shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:text-[var(--color-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--color-board)]/15 transition-shadow"
-          />
+            <button
+              type="button"
+              onClick={createGame}
+              disabled={loading}
+              className="w-full py-3.5 rounded-xl bg-[var(--color-board)] text-white font-semibold hover:bg-[var(--color-board-hover)] transition-colors disabled:opacity-40"
+            >
+              {loading ? "Создание..." : "Создать игру"}
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={createGame}
-            disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-[var(--color-board)] text-white font-semibold hover:bg-[var(--color-board-hover)] transition-colors disabled:opacity-40"
-          >
-            {loading ? "Создание..." : "Создать игру"}
-          </button>
+          <div className="space-y-3 mt-5">
+            <input
+              type="text"
+              value={gameCode}
+              onChange={(e) => setGameCode(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && joinGame()}
+              placeholder="Код игры (для входа)"
+              maxLength={12}
+              className="w-full px-4 py-3.5 rounded-xl bg-white text-[var(--color-ink)] font-mono tracking-widest shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] placeholder:tracking-normal placeholder:font-sans placeholder:text-[var(--color-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--color-board)]/15 transition-shadow"
+            />
 
-          <button
-            type="button"
-            onClick={joinGame}
-            disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-white text-[var(--color-board)] font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:bg-[var(--color-board-light)] transition-colors disabled:opacity-40"
-          >
-            Присоединиться к игре
-          </button>
+            <button
+              type="button"
+              onClick={joinGame}
+              disabled={loading}
+              className="w-full py-3.5 rounded-xl bg-white text-[var(--color-board)] font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:bg-[var(--color-board-light)] transition-colors disabled:opacity-40"
+            >
+              Присоединиться к игре
+            </button>
+          </div>
 
           {error && <p className="text-red-600 text-sm text-center pt-1">{error}</p>}
         </div>
