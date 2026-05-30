@@ -32,14 +32,19 @@ export function GameSettingsPanel({ settings, onChange, readOnly }: GameSettings
   };
 
   const commitTileBagSize = () => {
-    const value = Number(tileInput);
+    const trimmed = tileInput.trim();
+    if (trimmed === "") {
+      setTileInput(String(settings.tileBagSize));
+      return;
+    }
+    const value = Number(trimmed);
     if (Number.isNaN(value)) {
       setTileInput(String(settings.tileBagSize));
       return;
     }
-    update({
-      tileBagSize: Math.min(MAX_TILE_BAG_SIZE, Math.max(MIN_TILE_BAG_SIZE, value)),
-    });
+    const clamped = Math.min(MAX_TILE_BAG_SIZE, Math.max(MIN_TILE_BAG_SIZE, value));
+    update({ tileBagSize: clamped });
+    setTileInput(String(clamped));
   };
 
   const demoBoard = useMemo(() => {
@@ -81,22 +86,25 @@ export function GameSettingsPanel({ settings, onChange, readOnly }: GameSettings
           Фишек в мешке
         </label>
         <input
-          type="number"
-          min={MIN_TILE_BAG_SIZE}
-          max={MAX_TILE_BAG_SIZE}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
           value={tileInput}
           disabled={disabled}
           onChange={(e) => {
-            setTileInput(e.target.value);
-            const value = Number(e.target.value);
-            if (!Number.isNaN(value)) {
-              update({
-                tileBagSize: Math.min(MAX_TILE_BAG_SIZE, Math.max(MIN_TILE_BAG_SIZE, value)),
-              });
+            const next = e.target.value;
+            if (next === "" || /^\d+$/.test(next)) {
+              setTileInput(next);
             }
           }}
           onBlur={commitTileBagSize}
-          onKeyDown={(e) => e.key === "Enter" && commitTileBagSize()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commitTileBagSize();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
           className="mt-2 w-full px-4 py-3 rounded-xl bg-white text-[var(--color-ink)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] focus:outline-none focus:ring-2 focus:ring-[var(--color-board)]/15 disabled:opacity-60"
         />
         <p className="mt-1.5 text-xs text-[var(--color-ink-faint)]">
