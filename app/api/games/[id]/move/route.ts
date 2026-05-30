@@ -3,6 +3,7 @@ import {
   exchangeTiles,
   passTurn,
   placeTiles,
+  surrender,
 } from "@/lib/game-logic";
 import { updateGame } from "@/lib/store";
 
@@ -29,6 +30,8 @@ export async function POST(
           return exchangeTiles(state, playerId, body.tileIds);
         case "pass":
           return passTurn(state, playerId);
+        case "surrender":
+          return surrender(state, playerId);
         default:
           throw new Error("Неизвестное действие");
       }

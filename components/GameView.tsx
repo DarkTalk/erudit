@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { GameBoard } from "./GameBoard";
 import { LetterPicker } from "./LetterPicker";
 import { PlayerList } from "./PlayerList";
 import { TileRack } from "./TileRack";
+import { VictoryFireworks } from "./VictoryFireworks";
 import type { GameViewState } from "@/hooks/useGame";
 
 interface PendingPlacement {
@@ -24,6 +26,7 @@ interface GameViewProps {
   ) => Promise<void>;
   onExchange: (tileIds: string[]) => Promise<void>;
   onPass: () => Promise<void>;
+  onSurrender: () => Promise<void>;
   onStart: () => Promise<void>;
 }
 
@@ -33,6 +36,7 @@ export function GameView({
   onPlace,
   onExchange,
   onPass,
+  onSurrender,
   onStart,
 }: GameViewProps) {
   const [pending, setPending] = useState<PendingPlacement[]>([]);
@@ -44,6 +48,15 @@ export function GameView({
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [surrenderStep, setSurrenderStep] = useState<0 | 1>(0);
+
+  useEffect(() => {
+    if (!state.isMyTurn) {
+      setSurrenderStep(0);
+      setExchangeMode(false);
+      setSelectedExchange(new Set());
+    }
+  }, [state.isMyTurn]);
 
   const myRack = state.myRack ?? [];
   const pendingIds = new Set(pending.map((p) => p.tileId));
@@ -222,6 +235,22 @@ export function GameView({
     }
   };
 
+  const submitSurrender = async () => {
+    setActionError(null);
+    setSubmitting(true);
+    try {
+      await onSurrender();
+      setSurrenderStep(0);
+      setExchangeMode(false);
+      setSelectedExchange(new Set());
+      clearPending();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const copyLink = async () => {
     await navigator.clipboard.writeText(window.location.href);
     setLinkCopied(true);
@@ -231,6 +260,9 @@ export function GameView({
   const winner = state.winnerId
     ? state.players.find((p) => p.id === state.winnerId)
     : null;
+  const isFinished = state.status === "finished";
+  const isWinner = isFinished && state.winnerId === playerId;
+  const isLoser = isFinished && state.winnerId !== null && state.winnerId !== playerId;
 
   if (state.status === "waiting") {
     return (
@@ -260,7 +292,8 @@ export function GameView({
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 relative">
+      {isWinner && <VictoryFireworks />}
       <div className="flex-1 flex flex-col items-center gap-4">
         <GameBoard
           board={state.board}
@@ -289,7 +322,7 @@ export function GameView({
                 e.dataTransfer.setData("tileId", id);
               }}
               onDrop={handleRackDrop}
-              interactive={!!state.isMyTurn && !exchangeMode}
+              interactive={!!state.isMyTurn}
             />
             {!state.isMyTurn && (
               <div className="text-center text-[var(--color-ink-muted)] py-1">
@@ -299,12 +332,34 @@ export function GameView({
           </>
         )}
 
-        {state.status === "finished" && winner && (
-          <div className="text-center p-6 rounded-2xl bg-[var(--color-board-light)] border border-[var(--color-border)]">
-            <p className="text-2xl font-bold text-[var(--color-board)]">Игра окончена!</p>
-            <p className="text-[var(--color-ink-muted)] mt-2">
-              Победитель: <span className="font-semibold text-[var(--color-ink)]">{winner.name}</span> ({winner.score} очков)
+        {isFinished && winner && (
+          <div
+            className={`text-center p-6 rounded-2xl border shadow-sm relative z-50 w-full max-w-sm ${
+              isWinner
+                ? "bg-gradient-to-b from-[#fff8ef] to-[var(--color-board-light)] border-[var(--color-board)] animate-victory-pop"
+                : "bg-[var(--color-board-light)] border-[var(--color-border)]"
+            }`}
+          >
+            <p className="text-2xl font-bold text-[var(--color-board)]">
+              {isWinner ? "Победа!" : isLoser ? "Поражение" : "Игра окончена"}
             </p>
+            <p className="text-[var(--color-ink-muted)] mt-2">
+              {isWinner ? (
+                <>Вы набрали <span className="font-semibold text-[var(--color-ink)]">{winner.score}</span> очков</>
+              ) : (
+                <>
+                  Победитель:{" "}
+                  <span className="font-semibold text-[var(--color-ink)]">{winner.name}</span> ({winner.score}{" "}
+                  очков)
+                </>
+              )}
+            </p>
+            <Link
+              href="/"
+              className="mt-5 inline-flex w-full items-center justify-center px-5 py-3 rounded-xl bg-[var(--color-board)] text-white font-semibold hover:bg-[var(--color-board-hover)] transition-colors"
+            >
+              Играть снова
+            </Link>
           </div>
         )}
 
@@ -340,6 +395,38 @@ export function GameView({
                   Отмена
                 </ActionButton>
               </>
+            )}
+          </div>
+        )}
+
+        {state.status === "playing" && (
+          <div className="flex flex-col items-center gap-2 w-full">
+            {surrenderStep === 0 ? (
+              <ActionButton
+                onClick={() => setSurrenderStep(1)}
+                disabled={submitting}
+                className="!text-red-700 !border-red-200 hover:!border-red-400"
+              >
+                Сдаться
+              </ActionButton>
+            ) : (
+              <div className="flex flex-col items-center gap-2 w-full max-w-sm">
+                <p className="text-xs text-red-700/90 text-center">
+                  Вы уверены? Игра завершится, победит соперник с наибольшим счётом.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <ActionButton
+                    onClick={submitSurrender}
+                    disabled={submitting}
+                    className="!bg-red-600 hover:!bg-red-700 !text-white !border-red-600"
+                  >
+                    Да, сдаться
+                  </ActionButton>
+                  <ActionButton onClick={() => setSurrenderStep(0)} disabled={submitting}>
+                    Отмена
+                  </ActionButton>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -388,6 +475,7 @@ export function GameView({
               )}
               {lastMove.type === "pass" && " — пропуск"}
               {lastMove.type === "exchange" && " — обмен фишек"}
+              {lastMove.type === "surrender" && " — сдача"}
             </p>
           </div>
         )}
@@ -408,11 +496,13 @@ function ActionButton({
   onClick,
   disabled,
   primary,
+  className,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
   primary?: boolean;
+  className?: string;
 }) {
   return (
     <button
@@ -423,7 +513,7 @@ function ActionButton({
         primary
           ? "bg-[var(--color-board)] hover:bg-[var(--color-board-hover)] text-white disabled:opacity-40"
           : "bg-white border border-[var(--color-border)] hover:border-[var(--color-board)] text-[var(--color-ink)] disabled:opacity-40"
-      }`}
+      } ${className ?? ""}`}
     >
       {children}
     </button>

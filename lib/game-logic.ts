@@ -459,6 +459,30 @@ export function exchangeTiles(
   };
 }
 
+export function surrender(state: GameState, playerId: string): GameState {
+  if (state.status !== "playing") throw new Error("Игра не идёт");
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) throw new Error("Игрок не найден");
+
+  const opponents = state.players.filter((p) => p.id !== playerId);
+  if (opponents.length === 0) throw new Error("Нет соперников");
+
+  const winner = [...opponents].sort((a, b) => b.score - a.score)[0];
+
+  const move: GameMove = {
+    playerId,
+    type: "surrender",
+    timestamp: Date.now(),
+  };
+
+  return {
+    ...state,
+    status: "finished",
+    winnerId: winner.id,
+    moves: [...state.moves, move],
+  };
+}
+
 export function passTurn(state: GameState, playerId: string): GameState {
   if (state.status !== "playing") throw new Error("Игра не идёт");
   const current = state.players[state.currentPlayerIndex];

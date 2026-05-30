@@ -116,5 +116,21 @@ export function useGame(gameId: string, playerId: string | null) {
     return apiCall(`/api/games/${gameId}/move`, { action: "pass", playerId });
   };
 
-  return { state, error, loading, join, start, place, exchange, pass, refresh: fetchState };
+  const surrenderGame = async () => {
+    if (!playerId) throw new Error("Не авторизован");
+    return apiCall(`/api/games/${gameId}/move`, { action: "surrender", playerId });
+  };
+
+  return {
+    state,
+    error,
+    loading,
+    join,
+    start,
+    place,
+    exchange,
+    pass,
+    surrender: surrenderGame,
+    refresh: fetchState,
+  };
 }

@@ -35,7 +35,7 @@ export interface PendingPlacement {
 
 export interface GameMove {
   playerId: string;
-  type: "place" | "exchange" | "pass";
+  type: "place" | "exchange" | "pass" | "surrender";
   placements?: { row: number; col: number; tileId: string }[];
   exchangedTileIds?: string[];
   words?: string[];

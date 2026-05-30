@@ -28,6 +28,7 @@ interface GameBoardProps {
   onPendingDragStart?: (tileId: string) => (e: React.DragEvent) => void;
   onPendingClick?: (tileId: string) => void;
   interactive?: boolean;
+  compact?: boolean;
 }
 
 function rectOverlap(
@@ -82,6 +83,7 @@ export function GameBoard({
   onPendingDragStart,
   onPendingClick,
   interactive,
+  compact,
 }: GameBoardProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const pendingMap = new Map(pending.map((p) => [`${p.row},${p.col}`, p]));
@@ -103,7 +105,8 @@ export function GameBoard({
   return (
     <div
       className={clsx(
-        "inline-block p-3 sm:p-4 rounded-[12px]",
+        "inline-block rounded-[12px]",
+        compact ? "p-2" : "p-3 sm:p-4",
         "bg-[#f5f0e8] border border-[#ddd0bb]",
         "shadow-[0_4px_24px_rgba(44,36,24,0.06)]",
         "board-linen"
@@ -113,7 +116,7 @@ export function GameBoard({
         ref={gridRef}
         onDragOver={handleGridDragOver}
         onDrop={handleGridDrop}
-        className="relative z-[2] grid gap-[3px]"
+        className={clsx("relative z-[2] grid", compact ? "gap-[2px]" : "gap-[3px]")}
         style={{
           gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0, 1fr))`,
         }}
@@ -135,7 +138,9 @@ export function GameBoard({
                 onClick={() => interactive && onCellClick?.(ri, ci)}
                 className={clsx(
                   "relative flex items-center justify-center rounded-[2px] aspect-square",
-                  "w-[clamp(18px,4.5vw,36px)] h-[clamp(18px,4.5vw,36px)]",
+                  compact
+                    ? "w-[clamp(14px,3.2vw,22px)] h-[clamp(14px,3.2vw,22px)]"
+                    : "w-[clamp(18px,4.5vw,36px)] h-[clamp(18px,4.5vw,36px)]",
                   isEmpty && "border border-[#ddd5c5]",
                   isEmpty && bonusColor(bonus),
                   interactive && isEmpty && "cursor-pointer hover:brightness-[1.03]",
@@ -145,7 +150,8 @@ export function GameBoard({
                 {isEmpty && bonus && (
                   <span
                     className={clsx(
-                      "text-[9px] font-medium text-center leading-none pointer-events-none opacity-75",
+                      "font-medium text-center leading-none pointer-events-none opacity-75",
+                      compact ? "text-[7px]" : "text-[9px]",
                       bonusLabelColor(bonus)
                     )}
                   >
@@ -153,7 +159,14 @@ export function GameBoard({
                   </span>
                 )}
                 {isEmpty && isCenter && !bonus && (
-                  <span className="text-[#9a5a3a]/50 text-[10px] leading-none">★</span>
+                  <span
+                    className={clsx(
+                      "text-[#9a5a3a]/50 leading-none",
+                      compact ? "text-[8px]" : "text-[10px]"
+                    )}
+                  >
+                    ★
+                  </span>
                 )}
                 {cell.tile && (
                   <Tile

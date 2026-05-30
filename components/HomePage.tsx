@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { HomeDemoBoard } from "@/components/HomeDemoBoard";
 
 export function HomePage() {
   const router = useRouter();
@@ -111,6 +112,8 @@ export function HomePage() {
           <Feature title="51 000 слов" desc="Большой словарь существительных" />
           <Feature title="Онлайн" desc="Игра в реальном времени" />
         </div>
+
+        <HomeDemoBoard />
       </div>
     </div>
   );
