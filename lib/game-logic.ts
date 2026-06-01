@@ -351,10 +351,14 @@ function applyPlacements(
   return newBoard;
 }
 
-function placementsAreConnected(placements: PendingPlacement[]): boolean {
+/** Новые фишки связны через ортогональные соседства (включая уже лежащие на поле). */
+function placementsConnectedThroughBoard(
+  board: BoardCell[][],
+  placements: PendingPlacement[]
+): boolean {
   if (placements.length <= 1) return placements.length === 1;
 
-  const cells = new Set(placements.map((p) => `${p.row},${p.col}`));
+  const placementSet = new Set(placements.map((p) => `${p.row},${p.col}`));
   const start = placements[0]!;
   const visited = new Set<string>([`${start.row},${start.col}`]);
   const queue: [number, number][] = [[start.row, start.col]];
@@ -367,15 +371,19 @@ function placementsAreConnected(placements: PendingPlacement[]): boolean {
       [0, -1],
       [0, 1],
     ] as const) {
-      const key = `${row + dr},${col + dc}`;
-      if (cells.has(key) && !visited.has(key)) {
+      const r = row + dr;
+      const c = col + dc;
+      if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) continue;
+      const key = `${r},${c}`;
+      if (visited.has(key)) continue;
+      if (placementSet.has(key) || board[r][c].tile) {
         visited.add(key);
-        queue.push([row + dr, col + dc]);
+        queue.push([r, c]);
       }
     }
   }
 
-  return visited.size === placements.length;
+  return placements.every((p) => visited.has(`${p.row},${p.col}`));
 }
 
 function hasTileAt(
@@ -387,6 +395,36 @@ function hasTileAt(
   return !!board[row]?.[col]?.tile || placementSet.has(`${row},${col}`);
 }
 
+function runLengthThroughCell(
+  board: BoardCell[][],
+  row: number,
+  col: number,
+  horizontal: boolean,
+  placementSet: Set<string>
+): number {
+  if (!hasTileAt(board, row, col, placementSet)) return 0;
+
+  if (horizontal) {
+    let minC = col;
+    let maxC = col;
+    while (minC > 0 && hasTileAt(board, row, minC - 1, placementSet)) minC--;
+    while (maxC < BOARD_SIZE - 1 && hasTileAt(board, row, maxC + 1, placementSet)) maxC++;
+    for (let c = minC; c <= maxC; c++) {
+      if (!hasTileAt(board, row, c, placementSet)) return 0;
+    }
+    return maxC - minC + 1;
+  }
+
+  let minR = row;
+  let maxR = row;
+  while (minR > 0 && hasTileAt(board, minR - 1, col, placementSet)) minR--;
+  while (maxR < BOARD_SIZE - 1 && hasTileAt(board, maxR + 1, col, placementSet)) maxR++;
+  for (let r = minR; r <= maxR; r++) {
+    if (!hasTileAt(board, r, col, placementSet)) return 0;
+  }
+  return maxR - minR + 1;
+}
+
 /** Горизонтальный и вертикальный ряд через клетку — без пустых клеток внутри. */
 function placementWordRunsContinuous(
   board: BoardCell[][],
@@ -394,26 +432,22 @@ function placementWordRunsContinuous(
   col: number,
   placementSet: Set<string>
 ): boolean {
-  if (hasTileAt(board, row, col, placementSet)) {
-    let minC = col;
-    let maxC = col;
-    while (minC > 0 && hasTileAt(board, row, minC - 1, placementSet)) minC--;
-    while (maxC < BOARD_SIZE - 1 && hasTileAt(board, row, maxC + 1, placementSet)) maxC++;
-    for (let c = minC; c <= maxC; c++) {
-      if (!hasTileAt(board, row, c, placementSet)) return false;
-    }
-  }
+  if (!hasTileAt(board, row, col, placementSet)) return true;
+  if (runLengthThroughCell(board, row, col, true, placementSet) === 0) return false;
+  if (runLengthThroughCell(board, row, col, false, placementSet) === 0) return false;
+  return true;
+}
 
-  if (hasTileAt(board, row, col, placementSet)) {
-    let minR = row;
-    let maxR = row;
-    while (minR > 0 && hasTileAt(board, minR - 1, col, placementSet)) minR--;
-    while (maxR < BOARD_SIZE - 1 && hasTileAt(board, maxR + 1, col, placementSet)) maxR++;
-    for (let r = minR; r <= maxR; r++) {
-      if (!hasTileAt(board, r, col, placementSet)) return false;
-    }
+function eachPlacementInWordRun(
+  board: BoardCell[][],
+  placements: PendingPlacement[],
+  placementSet: Set<string>
+): boolean {
+  for (const { row, col } of placements) {
+    const horizontal = runLengthThroughCell(board, row, col, true, placementSet);
+    const vertical = runLengthThroughCell(board, row, col, false, placementSet);
+    if (horizontal < 2 && vertical < 2) return false;
   }
-
   return true;
 }
 
@@ -426,13 +460,13 @@ function placementsFormValidPlacement(
   placements: PendingPlacement[]
 ): boolean {
   if (placements.length === 0) return false;
-  if (!placementsAreConnected(placements)) return false;
+  if (!placementsConnectedThroughBoard(board, placements)) return false;
 
   const placementSet = new Set(placements.map((p) => `${p.row},${p.col}`));
   for (const { row, col } of placements) {
     if (!placementWordRunsContinuous(board, row, col, placementSet)) return false;
   }
-  return true;
+  return eachPlacementInWordRun(board, placements, placementSet);
 }
 
 function activePlayers(state: GameState): Player[] {
@@ -449,58 +483,191 @@ function nextActivePlayerIndex(state: GameState, fromIndex?: number): number {
   return start;
 }
 
-/**
- * Длина горизонтального/вертикального ряда фишек через клетку.
- */
-function horizontalRunLength(board: BoardCell[][], row: number, col: number): number {
-  if (!board[row][col].tile) return 0;
-  let start = col;
-  while (start > 0 && board[row][start - 1].tile) start--;
-  let end = col;
-  while (end < BOARD_SIZE - 1 && board[row][end + 1].tile) end++;
-  return end - start + 1;
+interface WordRun {
+  horizontal: boolean;
+  cells: [number, number][];
 }
 
-function verticalRunLength(board: BoardCell[][], row: number, col: number): number {
-  if (!board[row][col].tile) return 0;
+function getWordRun(
+  board: BoardCell[][],
+  row: number,
+  col: number,
+  horizontal: boolean
+): [number, number][] {
+  if (!board[row][col].tile) return [];
+
+  if (horizontal) {
+    let start = col;
+    while (start > 0 && board[row][start - 1].tile) start--;
+    let end = col;
+    while (end < BOARD_SIZE - 1 && board[row][end + 1].tile) end++;
+    const cells: [number, number][] = [];
+    for (let c = start; c <= end; c++) cells.push([row, c]);
+    return cells;
+  }
+
   let start = row;
   while (start > 0 && board[start - 1][col].tile) start--;
   let end = row;
   while (end < BOARD_SIZE - 1 && board[end + 1][col].tile) end++;
-  return end - start + 1;
+  const cells: [number, number][] = [];
+  for (let r = start; r <= end; r++) cells.push([r, col]);
+  return cells;
 }
 
-/**
- * Кроссворд: нельзя ставить букву горизонтального слова прямо под буквой другого
- * горизонтального слова (тот же столбец на соседних строках). Сдвиг по диагонали допустим.
- * Аналогично для вертикальных слов в соседних столбцах на одной строке.
- * Перпендикулярное пересечение не затрагивается (у клетки один горизонтальный или один вертикальный пробег ≥ 2).
- */
-function validateCrosswordLayout(board: BoardCell[][]): void {
-  const crosswordGapError = "Кроссворд: между параллельными словами нужен отступ";
+function collectAffectedWordRuns(
+  board: BoardCell[][],
+  placementSet: Set<string>
+): WordRun[] {
+  const runs: WordRun[] = [];
+  const seen = new Set<string>();
 
-  for (let c = 0; c < BOARD_SIZE; c++) {
-    for (let r = 0; r < BOARD_SIZE - 1; r++) {
-      if (!board[r][c].tile || !board[r + 1][c].tile) continue;
-      if (
-        horizontalRunLength(board, r, c) >= 2 &&
-        horizontalRunLength(board, r + 1, c) >= 2
-      ) {
-        throw new Error(crosswordGapError);
-      }
+  for (const key of placementSet) {
+    const [row, col] = key.split(",").map(Number) as [number, number];
+    for (const horizontal of [true, false] as const) {
+      const cells = getWordRun(board, row, col, horizontal);
+      if (cells.length < 2) continue;
+      const runKey = cells.map(([r, c]) => `${r},${c}`).join("|");
+      if (seen.has(runKey)) continue;
+      seen.add(runKey);
+      runs.push({ horizontal, cells });
     }
   }
 
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE - 1; c++) {
-      if (!board[r][c].tile || !board[r][c + 1].tile) continue;
-      if (
-        verticalRunLength(board, r, c) >= 2 &&
-        verticalRunLength(board, r, c + 1) >= 2
-      ) {
-        throw new Error(crosswordGapError);
-      }
+  return runs;
+}
+
+function normalizeLetter(letter: string): string {
+  return letter.toLowerCase().replace(/ё/g, "е");
+}
+
+function cellLetter(board: BoardCell[][], row: number, col: number): string | null {
+  const tile = board[row][col].tile;
+  if (!tile) return null;
+  return normalizeLetter(getLetter(tile));
+}
+
+function validateCrosswordWordRun(
+  boardBefore: BoardCell[][],
+  boardAfter: BoardCell[][],
+  run: WordRun,
+  placementSet: Set<string>
+): void {
+  const sideTouchError =
+    "Кроссворд: слова не могут соприкасаться сторонами без пересечения";
+  const { horizontal, cells } = run;
+  const [startRow, startCol] = cells[0]!;
+  const [endRow, endCol] = cells[cells.length - 1]!;
+
+  if (horizontal) {
+    if (startCol > 0 && boardAfter[startRow]![startCol - 1]!.tile) {
+      throw new Error(sideTouchError);
     }
+    if (endCol < BOARD_SIZE - 1 && boardAfter[endRow]![endCol + 1]!.tile) {
+      throw new Error(sideTouchError);
+    }
+  } else {
+    if (startRow > 0 && boardAfter[startRow - 1]![startCol]!.tile) {
+      throw new Error(sideTouchError);
+    }
+    if (endRow < BOARD_SIZE - 1 && boardAfter[endRow + 1]![endCol]!.tile) {
+      throw new Error(sideTouchError);
+    }
+  }
+
+  for (const [row, col] of cells) {
+    const before = cellLetter(boardBefore, row, col);
+    const after = cellLetter(boardAfter, row, col);
+    if (before !== null && after !== before) {
+      throw new Error("Кроссворд: нельзя заменять существующие буквы");
+    }
+
+    if (!placementSet.has(`${row},${col}`)) continue;
+
+    // «Не пересекающаяся» буква — клетка была пустой до хода.
+    if (boardBefore[row]![col]!.tile) continue;
+
+    const perpHorizontal = !horizontal;
+    const perpOffsets = horizontal
+      ? ([[-1, 0], [1, 0]] as const)
+      : ([[0, -1], [0, 1]] as const);
+    const firstMove = !boardHasTiles(boardBefore);
+
+    for (const [dr, dc] of perpOffsets) {
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE) continue;
+      if (!boardAfter[nr]![nc]!.tile) continue;
+
+      if (firstMove) {
+        const crossingRun = getWordRun(boardAfter, row, col, perpHorizontal);
+        const allowedFirstMoveCross =
+          crossingRun.length >= 2 &&
+          crossingRun.some(([r, c]) => r === nr && c === nc) &&
+          crossingRun.every(([r, c]) => placementSet.has(`${r},${c}`));
+        if (allowedFirstMoveCross) continue;
+      } else if (
+        getWordRun(boardBefore, nr, nc, perpHorizontal).length >= 2
+      ) {
+        continue;
+      }
+
+      throw new Error(sideTouchError);
+    }
+  }
+}
+
+/**
+ * Кроссворд: проверка хода по правилам пересечения слов.
+ */
+function validateCrosswordMove(
+  boardBefore: BoardCell[][],
+  placements: PendingPlacement[],
+  rackById: Map<string, RackTile>,
+  blankLetters: Record<string, string>
+): void {
+  const boardAfter = applyPlacements(
+    boardBefore,
+    placements,
+    rackById,
+    blankLetters
+  );
+  const placementSet = new Set(placements.map((p) => `${p.row},${p.col}`));
+  const affectedRuns = collectAffectedWordRuns(boardAfter, placementSet);
+
+  if (affectedRuns.length === 0) {
+    throw new Error("Кроссворд: составьте слово из двух или более букв");
+  }
+
+  const cellsInRuns = new Set<string>();
+  for (const run of affectedRuns) {
+    for (const [r, c] of run.cells) cellsInRuns.add(`${r},${c}`);
+  }
+  for (const { row, col } of placements) {
+    if (!cellsInRuns.has(`${row},${col}`)) {
+      throw new Error("Каждая новая фишка должна входить в слово");
+    }
+  }
+
+  const hasExisting = boardHasTiles(boardBefore);
+  if (hasExisting) {
+    let intersectsExisting = false;
+    for (const run of affectedRuns) {
+      for (const [r, c] of run.cells) {
+        if (boardBefore[r]![c]!.tile) {
+          intersectsExisting = true;
+          break;
+        }
+      }
+      if (intersectsExisting) break;
+    }
+    if (!intersectsExisting) {
+      throw new Error("Кроссворд: новое слово должно пересекать существующее");
+    }
+  }
+
+  for (const run of affectedRuns) {
+    validateCrosswordWordRun(boardBefore, boardAfter, run, placementSet);
   }
 }
 
@@ -710,7 +877,7 @@ export function placeTiles(
   }
 
   if (state.settings.mode === "crossword") {
-    validateCrosswordLayout(tempBoard);
+    validateCrosswordMove(state.board, placements, rackById, blankLetters);
   }
 
   const { total, words } = scoreMove(tempBoard);

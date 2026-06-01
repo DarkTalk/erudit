@@ -68,7 +68,7 @@ export function GameSettingsPanel({ settings, onChange, readOnly }: GameSettings
           />
           <ModeOption
             label="Кроссворд"
-            description="Нельзя букву под буквой параллельного слова; по диагонали — можно"
+            description="Игра по правилам кроссворда"
             selected={settings.mode === "crossword"}
             disabled={disabled}
             onSelect={() => update({ mode: "crossword" })}
