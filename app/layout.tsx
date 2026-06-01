@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Nunito, Playfair_Display } from "next/font/google";
+import { YandexMetrika } from "@/components/YandexMetrika";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -59,6 +60,7 @@ export default function RootLayout({
             {children}
           </main>
         </div>
+        <YandexMetrika />
       </body>
     </html>
   );
