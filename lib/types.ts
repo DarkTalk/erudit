@@ -29,6 +29,8 @@ export interface Player {
   connected: boolean;
   lastSeen: number;
   isBot?: boolean;
+  /** Игрок сдался; не ходит, но остаётся в таблице счёта */
+  surrendered?: boolean;
 }
 
 export interface PendingPlacement {
@@ -53,6 +55,8 @@ export interface GameSettings {
   mode: GameMode;
   tileBagSize: number;
   startingWord: boolean;
+  /** null — без лимита времени на ход */
+  turnTimeSeconds: number | null;
 }
 
 export interface GameState {
@@ -74,6 +78,8 @@ export interface GameState {
   botDifficulty?: BotDifficulty;
   /** Слово на доске при старте (если startingWord), видно всем после начала */
   initialWord?: string;
+  /** Момент начала текущего хода (Unix ms), если включён лимит времени */
+  turnStartedAt?: number;
 }
 
 export interface CreateGameRequest {
@@ -126,8 +132,17 @@ export const DEFAULT_TILE_BAG_SIZE = 109;
 export const MIN_TILE_BAG_SIZE = 50;
 export const MAX_TILE_BAG_SIZE = 109;
 
+export const MIN_TURN_TIME_SECONDS = 20;
+export const MAX_TURN_TIME_SECONDS = 300;
+
+/** Варианты лимита времени на ход (секунды) */
+export const TURN_TIME_OPTIONS: number[] = [
+  20, 30, 45, 60, 90, 120, 180, 240, 300,
+];
+
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
   mode: "normal",
   tileBagSize: DEFAULT_TILE_BAG_SIZE,
   startingWord: false,
+  turnTimeSeconds: null,
 };

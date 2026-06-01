@@ -40,8 +40,8 @@ export function createHomeDemoBoard(): BoardCell[][] {
 }
 
 /**
- * Normal mode demo: parallel words may be offset without crossword gaps.
- * «ЛАМПА» with «ИМЯ» shifted one cell — invalid in crossword, ok in normal mode.
+ * Normal mode demo: «ЛАМПА» and «ИМЯ» share columns (М/И, А/М, П/Я) on adjacent rows.
+ * Invalid in crossword (letter under letter); diagonal-only offsets are allowed in crossword.
  */
 export function createNormalDemoBoard(): BoardCell[][] {
   const board = createEmptyBoard();

@@ -8,6 +8,7 @@ import {
   DEFAULT_TILE_BAG_SIZE,
   MAX_TILE_BAG_SIZE,
   MIN_TILE_BAG_SIZE,
+  TURN_TIME_OPTIONS,
   type GameMode,
   type GameSettings,
 } from "@/lib/types";
@@ -67,7 +68,7 @@ export function GameSettingsPanel({ settings, onChange, readOnly }: GameSettings
           />
           <ModeOption
             label="Кроссворд"
-            description="Между параллельными словами — отступ"
+            description="Нельзя букву под буквой параллельного слова; по диагонали — можно"
             selected={settings.mode === "crossword"}
             disabled={disabled}
             onSelect={() => update({ mode: "crossword" })}
@@ -110,6 +111,31 @@ export function GameSettingsPanel({ settings, onChange, readOnly }: GameSettings
         <p className="mt-1.5 text-xs text-[var(--color-ink-faint)]">
           Стандарт: {DEFAULT_TILE_BAG_SIZE} ({MIN_TILE_BAG_SIZE}–{MAX_TILE_BAG_SIZE})
         </p>
+      </div>
+
+      <div>
+        <p className="text-sm font-semibold text-[var(--color-ink-muted)] uppercase tracking-wider mb-3">
+          Время на ход
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <ModeOption
+            label="Без лимита"
+            description="Таймер отключён"
+            selected={settings.turnTimeSeconds === null}
+            disabled={disabled}
+            onSelect={() => update({ turnTimeSeconds: null })}
+          />
+          {TURN_TIME_OPTIONS.map((seconds) => (
+            <ModeOption
+              key={seconds}
+              label={formatTurnTime(seconds)}
+              description="На каждый ход"
+              selected={settings.turnTimeSeconds === seconds}
+              disabled={disabled}
+              onSelect={() => update({ turnTimeSeconds: seconds })}
+            />
+          ))}
+        </div>
       </div>
 
       <div>
@@ -173,4 +199,13 @@ export function defaultGameSettings(): GameSettings {
 
 export function formatGameMode(mode: GameMode): string {
   return mode === "crossword" ? "Кроссворд" : "Обычный";
+}
+
+export function formatTurnTime(seconds: number | null): string {
+  if (seconds === null) return "Без лимита";
+  if (seconds < 60) return `${seconds} сек`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  if (rest === 0) return `${minutes} мин`;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
 }

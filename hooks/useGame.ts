@@ -13,6 +13,7 @@ export interface GameViewState {
   winnerId: string | null;
   bagCount: number;
   settings: GameSettings;
+  turnStartedAt?: number;
   initialWord?: string;
   isMyTurn?: boolean;
   isHost?: boolean;
@@ -23,6 +24,7 @@ export interface GameViewState {
     score: number;
     rackCount: number;
     connected: boolean;
+    surrendered?: boolean;
   }[];
   board: {
     bonus: string | null;

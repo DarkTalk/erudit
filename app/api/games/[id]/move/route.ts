@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { processBotTurns } from "@/lib/bot";
 import {
+  applyTurnTimeout,
   exchangeTiles,
   passTurn,
   placeTiles,
@@ -19,20 +20,21 @@ export async function POST(
     const { action, playerId } = body;
 
     await updateGame(id, (state) => {
+      const resolved = applyTurnTimeout(state);
       switch (action) {
         case "place":
           return placeTiles(
-            state,
+            resolved,
             playerId,
             body.placements,
             body.blankLetters ?? {}
           );
         case "exchange":
-          return exchangeTiles(state, playerId, body.tileIds);
+          return exchangeTiles(resolved, playerId, body.tileIds);
         case "pass":
-          return passTurn(state, playerId);
+          return passTurn(resolved, playerId);
         case "surrender":
-          return surrender(state, playerId);
+          return surrender(resolved, playerId);
         default:
           throw new Error("Неизвестное действие");
       }

@@ -8,9 +8,12 @@ import {
   DEFAULT_GAME_SETTINGS,
   MAX_PLAYERS,
   MAX_TILE_BAG_SIZE,
+  MAX_TURN_TIME_SECONDS,
   MIN_PLAYERS,
   MIN_TILE_BAG_SIZE,
+  MIN_TURN_TIME_SECONDS,
   RACK_SIZE,
+  TURN_TIME_OPTIONS,
   STARTING_WORD_LENGTH,
   type BoardCell,
   type GameMove,
@@ -24,6 +27,22 @@ import {
   type RackTile,
 } from "./types";
 
+function normalizeTurnTimeSeconds(value: unknown): number | null {
+  if (value === null || value === undefined || value === false) return null;
+  const seconds = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  const clamped = Math.min(
+    MAX_TURN_TIME_SECONDS,
+    Math.max(MIN_TURN_TIME_SECONDS, Math.round(seconds))
+  );
+  if (!TURN_TIME_OPTIONS.includes(clamped)) {
+    return TURN_TIME_OPTIONS.reduce((best, option) =>
+      Math.abs(option - clamped) < Math.abs(best - clamped) ? option : best
+    );
+  }
+  return clamped;
+}
+
 function normalizeSettings(partial?: Partial<GameSettings>): GameSettings {
   const mode = partial?.mode === "crossword" ? "crossword" : "normal";
   const tileBagSize = Math.min(
@@ -31,8 +50,47 @@ function normalizeSettings(partial?: Partial<GameSettings>): GameSettings {
     Math.max(MIN_TILE_BAG_SIZE, partial?.tileBagSize ?? DEFAULT_GAME_SETTINGS.tileBagSize)
   );
   const startingWord = partial?.startingWord === true;
+  const turnTimeSeconds = normalizeTurnTimeSeconds(partial?.turnTimeSeconds);
 
-  return { mode, tileBagSize, startingWord };
+  return { mode, tileBagSize, startingWord, turnTimeSeconds };
+}
+
+function beginTurn(state: GameState): GameState {
+  if (state.status !== "playing" || !state.settings.turnTimeSeconds) {
+    const { turnStartedAt: _, ...rest } = state;
+    return rest;
+  }
+  return { ...state, turnStartedAt: Date.now() };
+}
+
+function finalizeAfterTurnChange(state: GameState): GameState {
+  return beginTurn(checkGameEnd(state));
+}
+
+export function applyTurnTimeout(state: GameState): GameState {
+  if (state.status !== "playing") return state;
+  const limit = state.settings.turnTimeSeconds;
+  if (!limit) return state;
+
+  const startedAt = state.turnStartedAt ?? Date.now();
+  if (!state.turnStartedAt) {
+    return { ...state, turnStartedAt: startedAt };
+  }
+
+  if (Date.now() - startedAt < limit * 1000) return state;
+
+  const current = state.players[state.currentPlayerIndex];
+  if (!current || current.surrendered) return state;
+
+  return passTurn(state, current.id);
+}
+
+export function turnAdvanced(before: GameState, after: GameState): boolean {
+  return (
+    before.moves.length !== after.moves.length ||
+    before.currentPlayerIndex !== after.currentPlayerIndex ||
+    before.status !== after.status
+  );
 }
 
 export function createGame(
@@ -194,7 +252,7 @@ export function startGame(state: GameState, hostId: string): GameState {
     return { ...p, rack, score: 0 };
   });
 
-  return {
+  return beginTurn({
     ...state,
     status: "playing",
     players,
@@ -205,7 +263,7 @@ export function startGame(state: GameState, hostId: string): GameState {
     consecutivePasses: 0,
     winnerId: null,
     initialWord,
-  };
+  });
 }
 
 function placeInitialWord(
@@ -293,47 +351,102 @@ function applyPlacements(
   return newBoard;
 }
 
+function placementsAreConnected(placements: PendingPlacement[]): boolean {
+  if (placements.length <= 1) return placements.length === 1;
+
+  const cells = new Set(placements.map((p) => `${p.row},${p.col}`));
+  const start = placements[0]!;
+  const visited = new Set<string>([`${start.row},${start.col}`]);
+  const queue: [number, number][] = [[start.row, start.col]];
+
+  while (queue.length > 0) {
+    const [row, col] = queue.shift()!;
+    for (const [dr, dc] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ] as const) {
+      const key = `${row + dr},${col + dc}`;
+      if (cells.has(key) && !visited.has(key)) {
+        visited.add(key);
+        queue.push([row + dr, col + dc]);
+      }
+    }
+  }
+
+  return visited.size === placements.length;
+}
+
+function hasTileAt(
+  board: BoardCell[][],
+  row: number,
+  col: number,
+  placementSet: Set<string>
+): boolean {
+  return !!board[row]?.[col]?.tile || placementSet.has(`${row},${col}`);
+}
+
+/** Горизонтальный и вертикальный ряд через клетку — без пустых клеток внутри. */
+function placementWordRunsContinuous(
+  board: BoardCell[][],
+  row: number,
+  col: number,
+  placementSet: Set<string>
+): boolean {
+  if (hasTileAt(board, row, col, placementSet)) {
+    let minC = col;
+    let maxC = col;
+    while (minC > 0 && hasTileAt(board, row, minC - 1, placementSet)) minC--;
+    while (maxC < BOARD_SIZE - 1 && hasTileAt(board, row, maxC + 1, placementSet)) maxC++;
+    for (let c = minC; c <= maxC; c++) {
+      if (!hasTileAt(board, row, c, placementSet)) return false;
+    }
+  }
+
+  if (hasTileAt(board, row, col, placementSet)) {
+    let minR = row;
+    let maxR = row;
+    while (minR > 0 && hasTileAt(board, minR - 1, col, placementSet)) minR--;
+    while (maxR < BOARD_SIZE - 1 && hasTileAt(board, maxR + 1, col, placementSet)) maxR++;
+    for (let r = minR; r <= maxR; r++) {
+      if (!hasTileAt(board, r, col, placementSet)) return false;
+    }
+  }
+
+  return true;
+}
+
 /**
- * All new tiles in one row or column; the full word run (including existing tiles
- * between new placements) must have no gaps.
+ * Новые фишки — одна связная группа; каждое образуемое слово (ряд/столбец) без пробелов.
+ * Допускается перпендикулярное пересечение (два слова за ход).
  */
-function placementsFormValidLine(
+function placementsFormValidPlacement(
   board: BoardCell[][],
   placements: PendingPlacement[]
 ): boolean {
   if (placements.length === 0) return false;
+  if (!placementsAreConnected(placements)) return false;
 
   const placementSet = new Set(placements.map((p) => `${p.row},${p.col}`));
-  const rows = new Set(placements.map((p) => p.row));
-  const cols = new Set(placements.map((p) => p.col));
-
-  if (rows.size === 1) {
-    const row = placements[0].row;
-    const pCols = placements.map((p) => p.col).sort((a, b) => a - b);
-    let min = pCols[0];
-    let max = pCols[pCols.length - 1];
-    while (min > 0 && board[row][min - 1].tile) min--;
-    while (max < BOARD_SIZE - 1 && board[row][max + 1].tile) max++;
-    for (let c = min; c <= max; c++) {
-      if (!board[row][c].tile && !placementSet.has(`${row},${c}`)) return false;
-    }
-    return true;
+  for (const { row, col } of placements) {
+    if (!placementWordRunsContinuous(board, row, col, placementSet)) return false;
   }
+  return true;
+}
 
-  if (cols.size === 1) {
-    const col = placements[0].col;
-    const pRows = placements.map((p) => p.row).sort((a, b) => a - b);
-    let min = pRows[0];
-    let max = pRows[pRows.length - 1];
-    while (min > 0 && board[min - 1][col].tile) min--;
-    while (max < BOARD_SIZE - 1 && board[max + 1][col].tile) max++;
-    for (let r = min; r <= max; r++) {
-      if (!board[r][col].tile && !placementSet.has(`${r},${col}`)) return false;
-    }
-    return true;
+function activePlayers(state: GameState): Player[] {
+  return state.players.filter((p) => !p.surrendered);
+}
+
+function nextActivePlayerIndex(state: GameState, fromIndex?: number): number {
+  const start = fromIndex ?? state.currentPlayerIndex;
+  const n = state.players.length;
+  for (let step = 1; step <= n; step++) {
+    const idx = (start + step) % n;
+    if (!state.players[idx]?.surrendered) return idx;
   }
-
-  return false;
+  return start;
 }
 
 /**
@@ -358,68 +471,34 @@ function verticalRunLength(board: BoardCell[][], row: number, col: number): numb
 }
 
 /**
- * Кроссворд: на соседних строках/столбцах нельзя ставить параллельные слова «внахлёст».
- * Перпендикулярное пересечение (горизонталь + вертикаль) не считается параллельным.
+ * Кроссворд: нельзя ставить букву горизонтального слова прямо под буквой другого
+ * горизонтального слова (тот же столбец на соседних строках). Сдвиг по диагонали допустим.
+ * Аналогично для вертикальных слов в соседних столбцах на одной строке.
+ * Перпендикулярное пересечение не затрагивается (у клетки один горизонтальный или один вертикальный пробег ≥ 2).
  */
 function validateCrosswordLayout(board: BoardCell[][]): void {
   const crosswordGapError = "Кроссворд: между параллельными словами нужен отступ";
 
+  for (let c = 0; c < BOARD_SIZE; c++) {
+    for (let r = 0; r < BOARD_SIZE - 1; r++) {
+      if (!board[r][c].tile || !board[r + 1][c].tile) continue;
+      if (
+        horizontalRunLength(board, r, c) >= 2 &&
+        horizontalRunLength(board, r + 1, c) >= 2
+      ) {
+        throw new Error(crosswordGapError);
+      }
+    }
+  }
+
   for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      if (!board[r][c].tile) continue;
-
-      // Смещённые параллельные горизонтальные слова на соседних строках
-      if (r + 1 < BOARD_SIZE && !board[r + 1][c].tile) {
-        for (const dc of [-1, 1] as const) {
-          const nc = c + dc;
-          if (nc < 0 || nc >= BOARD_SIZE || !board[r + 1][nc].tile) continue;
-          if (
-            horizontalRunLength(board, r, c) >= 2 &&
-            horizontalRunLength(board, r + 1, nc) >= 2
-          ) {
-            throw new Error(crosswordGapError);
-          }
-        }
-      }
-
-      if (r > 0 && !board[r - 1][c].tile) {
-        for (const dc of [-1, 1] as const) {
-          const nc = c + dc;
-          if (nc < 0 || nc >= BOARD_SIZE || !board[r - 1][nc].tile) continue;
-          if (
-            horizontalRunLength(board, r, c) >= 2 &&
-            horizontalRunLength(board, r - 1, nc) >= 2
-          ) {
-            throw new Error(crosswordGapError);
-          }
-        }
-      }
-
-      // Смещённые параллельные вертикальные слова на соседних столбцах
-      if (c + 1 < BOARD_SIZE && !board[r][c + 1].tile) {
-        for (const dr of [-1, 1] as const) {
-          const nr = r + dr;
-          if (nr < 0 || nr >= BOARD_SIZE || !board[nr][c + 1].tile) continue;
-          if (
-            verticalRunLength(board, r, c) >= 2 &&
-            verticalRunLength(board, nr, c + 1) >= 2
-          ) {
-            throw new Error(crosswordGapError);
-          }
-        }
-      }
-
-      if (c > 0 && !board[r][c - 1].tile) {
-        for (const dr of [-1, 1] as const) {
-          const nr = r + dr;
-          if (nr < 0 || nr >= BOARD_SIZE || !board[nr][c - 1].tile) continue;
-          if (
-            verticalRunLength(board, r, c) >= 2 &&
-            verticalRunLength(board, nr, c - 1) >= 2
-          ) {
-            throw new Error(crosswordGapError);
-          }
-        }
+    for (let c = 0; c < BOARD_SIZE - 1; c++) {
+      if (!board[r][c].tile || !board[r][c + 1].tile) continue;
+      if (
+        verticalRunLength(board, r, c) >= 2 &&
+        verticalRunLength(board, r, c + 1) >= 2
+      ) {
+        throw new Error(crosswordGapError);
       }
     }
   }
@@ -559,7 +638,7 @@ function clearNewFlags(board: BoardCell[][]): BoardCell[][] {
 }
 
 function nextPlayerIndex(state: GameState): number {
-  return (state.currentPlayerIndex + 1) % state.players.length;
+  return nextActivePlayerIndex(state);
 }
 
 function refillRack(player: Player, bag: RackTile[]): [Player, RackTile[]] {
@@ -570,13 +649,16 @@ function refillRack(player: Player, bag: RackTile[]): [Player, RackTile[]] {
 }
 
 function checkGameEnd(state: GameState): GameState {
-  const someoneEmpty = state.players.some((p) => p.rack.length === 0);
+  const playing = activePlayers(state);
+  if (playing.length === 0) return state;
+
+  const someoneEmpty = playing.some((p) => p.rack.length === 0);
   if (someoneEmpty && state.bag.length === 0) {
-    const winner = [...state.players].sort((a, b) => b.score - a.score)[0];
+    const winner = [...playing].sort((a, b) => b.score - a.score)[0]!;
     return { ...state, status: "finished", winnerId: winner.id };
   }
-  if (state.consecutivePasses >= state.players.length) {
-    const winner = [...state.players].sort((a, b) => b.score - a.score)[0];
+  if (state.consecutivePasses >= playing.length) {
+    const winner = [...playing].sort((a, b) => b.score - a.score)[0]!;
     return { ...state, status: "finished", winnerId: winner.id };
   }
   return state;
@@ -591,6 +673,7 @@ export function placeTiles(
   if (state.status !== "playing") throw new Error("Игра не идёт");
   const current = state.players[state.currentPlayerIndex];
   if (current.id !== playerId) throw new Error("Не ваш ход");
+  if (current.surrendered) throw new Error("Вы сдались и больше не ходите");
 
   if (placements.length === 0) throw new Error("Разместите хотя бы одну фишку");
 
@@ -604,8 +687,10 @@ export function placeTiles(
     }
   }
 
-  if (!placementsFormValidLine(state.board, placements)) {
-    throw new Error("Фишки должны быть в одну линию без пробелов");
+  if (!placementsFormValidPlacement(state.board, placements)) {
+    throw new Error(
+      "Новые фишки должны быть связаны и без пробелов в каждом слове"
+    );
   }
   if (!placementsConnectedToExisting(state.board, placements)) {
     throw new Error("Первый ход — через центральную звезду, далее — к существующим словам");
@@ -664,7 +749,7 @@ export function placeTiles(
     consecutivePasses: 0,
   };
 
-  return checkGameEnd(newState);
+  return finalizeAfterTurnChange(newState);
 }
 
 export function exchangeTiles(
@@ -675,6 +760,7 @@ export function exchangeTiles(
   if (state.status !== "playing") throw new Error("Игра не идёт");
   const current = state.players[state.currentPlayerIndex];
   if (current.id !== playerId) throw new Error("Не ваш ход");
+  if (current.surrendered) throw new Error("Вы сдались и больше не ходите");
   if (state.bag.length < tileIds.length) throw new Error("В мешке недостаточно фишок");
   if (tileIds.length === 0) throw new Error("Выберите фишки для обмена");
 
@@ -699,25 +785,21 @@ export function exchangeTiles(
     timestamp: Date.now(),
   };
 
-  return {
+  return finalizeAfterTurnChange({
     ...state,
     players: newPlayers,
     bag: [...newBag, ...toReturn],
     currentPlayerIndex: nextPlayerIndex(state),
     moves: [...state.moves, move],
     consecutivePasses: 0,
-  };
+  });
 }
 
 export function surrender(state: GameState, playerId: string): GameState {
   if (state.status !== "playing") throw new Error("Игра не идёт");
   const player = state.players.find((p) => p.id === playerId);
   if (!player) throw new Error("Игрок не найден");
-
-  const opponents = state.players.filter((p) => p.id !== playerId);
-  if (opponents.length === 0) throw new Error("Нет соперников");
-
-  const winner = [...opponents].sort((a, b) => b.score - a.score)[0];
+  if (player.surrendered) throw new Error("Вы уже сдались");
 
   const move: GameMove = {
     playerId,
@@ -725,18 +807,47 @@ export function surrender(state: GameState, playerId: string): GameState {
     timestamp: Date.now(),
   };
 
-  return {
+  let newState: GameState = {
     ...state,
-    status: "finished",
-    winnerId: winner.id,
+    players: state.players.map((p) =>
+      p.id === playerId ? { ...p, surrendered: true, rack: [] } : p
+    ),
+    bag: [...state.bag, ...player.rack],
     moves: [...state.moves, move],
+    consecutivePasses: 0,
   };
+
+  const remaining = activePlayers(newState);
+  if (remaining.length <= 1) {
+    const winner =
+      remaining[0] ??
+      [...newState.players.filter((p) => p.id !== playerId)].sort(
+        (a, b) => b.score - a.score
+      )[0];
+    if (!winner) throw new Error("Нет соперников");
+    return {
+      ...newState,
+      status: "finished",
+      winnerId: winner.id,
+    };
+  }
+
+  if (state.players[state.currentPlayerIndex]?.id === playerId) {
+    newState = {
+      ...newState,
+      currentPlayerIndex: nextActivePlayerIndex(newState, state.currentPlayerIndex),
+    };
+    return beginTurn(newState);
+  }
+
+  return newState;
 }
 
 export function passTurn(state: GameState, playerId: string): GameState {
   if (state.status !== "playing") throw new Error("Игра не идёт");
   const current = state.players[state.currentPlayerIndex];
   if (current.id !== playerId) throw new Error("Не ваш ход");
+  if (current.surrendered) throw new Error("Вы сдались и больше не ходите");
 
   const move: GameMove = {
     playerId,
@@ -751,7 +862,7 @@ export function passTurn(state: GameState, playerId: string): GameState {
     consecutivePasses: state.consecutivePasses + 1,
   };
 
-  return checkGameEnd(newState);
+  return finalizeAfterTurnChange(newState);
 }
 
 export function updatePlayerPresence(

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatGameMode, GameSettingsPanel } from "./GameSettingsPanel";
+import { formatGameMode, formatTurnTime, GameSettingsPanel } from "./GameSettingsPanel";
+import { TurnTimer } from "./TurnTimer";
 import { GameBoard } from "./GameBoard";
 import { LetterPicker } from "./LetterPicker";
 import { PlayerList } from "./PlayerList";
@@ -59,17 +60,27 @@ export function GameView({
   const [submitting, setSubmitting] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [surrenderStep, setSurrenderStep] = useState<0 | 1>(0);
+  const timeoutPassRef = useRef(false);
 
   const canPlay = !!state.isMyTurn && (!isLocal || handoffReady);
+  const turnLimit = state.settings?.turnTimeSeconds ?? null;
   const currentPlayer = state.players[state.currentPlayerIndex];
+  const myPlayer = state.players.find((p) => p.id === playerId);
+  const iSurrendered = !!myPlayer?.surrendered;
+  const canSurrender =
+    !isLocal && state.status === "playing" && !iSurrendered;
+  const activePlayerCount = state.players.filter((p) => !p.surrendered).length;
 
   useEffect(() => {
     if (!canPlay) {
-      setSurrenderStep(0);
       setExchangeMode(false);
       setSelectedExchange(new Set());
     }
   }, [canPlay]);
+
+  useEffect(() => {
+    timeoutPassRef.current = false;
+  }, [state.currentPlayerIndex, state.turnStartedAt]);
 
   const myRack = state.myRack ?? [];
   const pendingIds = new Set(pending.map((p) => p.tileId));
@@ -248,6 +259,23 @@ export function GameView({
     }
   };
 
+  const handleTurnTimeout = useCallback(async () => {
+    if (timeoutPassRef.current || state.status !== "playing" || !turnLimit) return;
+    if (!isLocal && !state.isMyTurn) return;
+    timeoutPassRef.current = true;
+    setActionError(null);
+    setSubmitting(true);
+    clearPending();
+    try {
+      await onPass();
+    } catch (e) {
+      timeoutPassRef.current = false;
+      setActionError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [state.status, state.isMyTurn, turnLimit, isLocal, onPass, clearPending]);
+
   const submitSurrender = async () => {
     setActionError(null);
     setSubmitting(true);
@@ -311,6 +339,18 @@ export function GameView({
     <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 relative">
       {isWinner && <VictoryFireworks />}
       <div className="flex-1 flex flex-col items-center gap-4">
+        {state.status === "playing" && turnLimit && state.turnStartedAt && (
+          <div className="w-full max-w-md">
+            <TurnTimer
+              turnTimeSeconds={turnLimit}
+              turnStartedAt={state.turnStartedAt}
+              isCurrentTurn={!!state.isMyTurn}
+              playerName={currentPlayer?.name}
+              onExpired={handleTurnTimeout}
+            />
+          </div>
+        )}
+
         <GameBoard
           board={state.board}
           pending={pending}
@@ -441,7 +481,7 @@ export function GameView({
           </div>
         )}
 
-        {canPlay && state.status === "playing" && (
+        {canSurrender && (
           <div className="flex flex-col items-center gap-2 w-full">
             {surrenderStep === 0 ? (
               <ActionButton
@@ -454,7 +494,9 @@ export function GameView({
             ) : (
               <div className="flex flex-col items-center gap-2 w-full max-w-sm">
                 <p className="text-xs text-red-700/90 text-center">
-                  Вы уверены? Игра завершится, победит соперник с наибольшим счётом.
+                  {activePlayerCount > 2
+                    ? "Вы уверены? Вы выйдете из игры, остальные продолжат."
+                    : "Вы уверены? Игра завершится, победит соперник с наибольшим счётом."}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <ActionButton
@@ -499,6 +541,9 @@ export function GameView({
           </div>
           <div className="text-xs text-[var(--color-ink-faint)] space-y-1 mb-2">
             <p>Режим: {formatGameMode((state.settings ?? DEFAULT_GAME_SETTINGS).mode)}</p>
+            {turnLimit && (
+              <p>Лимит хода: {formatTurnTime(turnLimit)}</p>
+            )}
             {state.initialWord && (
               <p>Начальное слово: {state.initialWord}</p>
             )}
@@ -569,6 +614,15 @@ function ActionButton({
   );
 }
 
+function settingsEqual(a: GameSettings, b: GameSettings): boolean {
+  return (
+    a.mode === b.mode &&
+    a.tileBagSize === b.tileBagSize &&
+    a.startingWord === b.startingWord &&
+    a.turnTimeSeconds === b.turnTimeSeconds
+  );
+}
+
 function LobbyCard({
   gameId,
   hostId,
@@ -600,8 +654,16 @@ function LobbyCard({
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSettingsRef = useRef<GameSettings | null>(null);
 
   useEffect(() => {
+    if (pendingSettingsRef.current) {
+      if (settingsEqual(settings, pendingSettingsRef.current)) {
+        pendingSettingsRef.current = null;
+        setLocalSettings(settings);
+      }
+      return;
+    }
     setLocalSettings(settings);
   }, [settings]);
 
@@ -615,14 +677,18 @@ function LobbyCard({
     setLocalSettings(next);
     if (!onUpdateSettings) return;
 
+    pendingSettingsRef.current = next;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
+      saveTimerRef.current = null;
       setSettingsSaving(true);
       setSettingsError(null);
       try {
         await onUpdateSettings(next);
+        pendingSettingsRef.current = null;
       } catch (e) {
         setSettingsError(e instanceof Error ? e.message : "Ошибка");
+        pendingSettingsRef.current = null;
         setLocalSettings(settings);
       } finally {
         setSettingsSaving(false);

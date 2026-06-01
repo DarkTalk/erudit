@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadGame } from "@/lib/store";
+import { loadGameResolved } from "@/lib/game-resolve";
 import type { GameState } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const playerId = searchParams.get("playerId");
 
-  const state = await loadGame(id);
+  const state = await loadGameResolved(id);
   if (!state) {
     return NextResponse.json({ error: "Игра не найдена" }, { status: 404 });
   }
@@ -45,6 +45,7 @@ function sanitizeForLobby(state: GameState) {
     winnerId: state.winnerId,
     bagCount: state.bag.length,
     settings: state.settings,
+    turnStartedAt: state.turnStartedAt,
     initialWord: state.initialWord,
     moves: state.moves.slice(-5),
     players: state.players.map((p) => ({
@@ -53,6 +54,7 @@ function sanitizeForLobby(state: GameState) {
       score: p.score,
       rackCount: p.rack.length,
       connected: true,
+      surrendered: !!p.surrendered,
     })),
     board: state.board.map((row) =>
       row.map((cell) => ({
@@ -74,6 +76,7 @@ function sanitizeForPlayer(state: GameState, playerId: string) {
   const me = state.players.find((p) => p.id === playerId)!;
   const isMyTurn =
     state.status === "playing" &&
+    !me.surrendered &&
     state.players[state.currentPlayerIndex]?.id === playerId;
 
   return {

@@ -14,12 +14,23 @@ const playfair = Playfair_Display({
   weight: ["600", "700"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+
 export const metadata: Metadata = {
   title: "Эрудит — играй с друзьями",
   description: "Онлайн-версия настольной игры Эрудит для компании друзей",
+  ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-120x120.png", sizes: "120x120", type: "image/png" },
+      { url: "/logo.png", sizes: "120x120", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
   },
 };
 

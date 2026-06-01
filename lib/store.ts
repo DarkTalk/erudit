@@ -54,10 +54,14 @@ function parseGameState(data: unknown): GameState | null {
   if (!data) return null;
   const raw =
     typeof data === "string" ? (JSON.parse(data) as GameState) : (data as GameState);
+  const settings = {
+    ...DEFAULT_GAME_SETTINGS,
+    ...(raw.settings ?? {}),
+  };
   return {
     ...raw,
     matchType: raw.matchType ?? "friends",
-    settings: raw.settings ?? DEFAULT_GAME_SETTINGS,
+    settings,
   };
 }
 

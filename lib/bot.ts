@@ -191,7 +191,7 @@ export async function processBotTurns(
     const state = await load(id);
     if (!state || state.status !== "playing") break;
     const current = state.players[state.currentPlayerIndex];
-    if (!current?.isBot) break;
+    if (!current?.isBot || current.surrendered) break;
     await update(id, (s) => executeBotTurn(s, current.id));
   }
 }
