@@ -141,7 +141,7 @@ export const TURN_TIME_OPTIONS: number[] = [
 ];
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
-  mode: "normal",
+  mode: "crossword",
   tileBagSize: DEFAULT_TILE_BAG_SIZE,
   startingWord: false,
   turnTimeSeconds: null,

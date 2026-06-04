@@ -547,6 +547,56 @@ function cellLetter(board: BoardCell[][], row: number, col: number): string | nu
   return normalizeLetter(getLetter(tile));
 }
 
+/**
+ * Две параллельные линии слов на соседних рядах/столбцах без общей клетки — «буква под буквой».
+ * Только одна линия (тот же столбец для горизонталей / тот же ряд для вертикалей).
+ */
+function isLetterUnderLetterConflict(
+  board: BoardCell[][],
+  mainHorizontal: boolean,
+  row: number,
+  col: number,
+  nr: number,
+  nc: number
+): boolean {
+  if (mainHorizontal) {
+    if (nc !== col) return false;
+    const here = getWordRun(board, row, col, true);
+    const there = getWordRun(board, nr, nc, true);
+    return here.length >= 2 && there.length >= 2 && nr !== row;
+  }
+  if (nr !== row) return false;
+  const here = getWordRun(board, row, col, false);
+  const there = getWordRun(board, nr, nc, false);
+  return here.length >= 2 && there.length >= 2 && nc !== col;
+}
+
+/**
+ * Поперечное касание новой фишки с одной уже лежащей буквой (не словом) — не требует словаря.
+ * Пример: «БОК» + «КОК» за ход, «О» касается одиночной «Ц».
+ */
+function isIncidentalIsolatedTouch(
+  boardBefore: BoardCell[][],
+  cells: [number, number][],
+  placementSet: Set<string>
+): boolean {
+  if (cells.length !== 2) return false;
+
+  const newCells = cells.filter(([r, c]) => placementSet.has(`${r},${c}`));
+  const oldCells = cells.filter(([r, c]) => boardBefore[r]![c]!.tile);
+  if (newCells.length !== 1 || oldCells.length !== 1) return false;
+
+  const horizontal = cells[0]![0] === cells[1]![0];
+  const [or, oc] = oldCells[0]!;
+  return getWordRun(boardBefore, or, oc, !horizontal).length < 2;
+}
+
+function existingWordsOnBoard(board: BoardCell[][]): Set<string> {
+  return new Set(
+    extractWords(board).map(({ word }) => normalizeLetter(word))
+  );
+}
+
 function validateCrosswordWordRun(
   boardBefore: BoardCell[][],
   boardAfter: BoardCell[][],
@@ -599,6 +649,15 @@ function validateCrosswordWordRun(
       if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE) continue;
       if (!boardAfter[nr]![nc]!.tile) continue;
 
+      // Сосед по линии основного слова (перекрёсток двух слов за ход)
+      if (horizontal && nc === col) {
+        const vertRun = getWordRun(boardAfter, row, col, false);
+        if (vertRun.some(([r, c]) => r === nr && c === nc)) continue;
+      } else if (!horizontal && nr === row) {
+        const horizRun = getWordRun(boardAfter, row, col, true);
+        if (horizRun.some(([r, c]) => r === nr && c === nc)) continue;
+      }
+
       if (firstMove) {
         const crossingRun = getWordRun(boardAfter, row, col, perpHorizontal);
         const allowedFirstMoveCross =
@@ -610,6 +669,21 @@ function validateCrosswordWordRun(
         getWordRun(boardBefore, nr, nc, perpHorizontal).length >= 2
       ) {
         continue;
+      } else {
+        const perpRunThroughNew = getWordRun(boardAfter, row, col, perpHorizontal);
+        if (
+          perpRunThroughNew.length >= 2 &&
+          !isLetterUnderLetterConflict(
+            boardAfter,
+            horizontal,
+            row,
+            col,
+            nr,
+            nc
+          )
+        ) {
+          continue;
+        }
       }
 
       throw new Error(sideTouchError);
@@ -869,9 +943,25 @@ export function placeTiles(
     cells.some(([r, c]) => placements.some((p) => p.row === r && p.col === c))
   );
 
-  for (const { word } of affectedWords) {
-    const normalized = word.toLowerCase().replace(/ё/g, "е");
-    if (normalized.length >= 2 && !isValidWord(normalized)) {
+  const placementSet = new Set(placements.map((p) => `${p.row},${p.col}`));
+  const wordsAlreadyOnBoard =
+    state.settings.mode === "crossword"
+      ? existingWordsOnBoard(state.board)
+      : null;
+
+  for (const { word, cells } of affectedWords) {
+    const normalized = normalizeLetter(word);
+    if (
+      wordsAlreadyOnBoard?.has(normalized) &&
+      !isIncidentalIsolatedTouch(state.board, cells, placementSet)
+    ) {
+      throw new Error(`Слово «${word}» уже выложено на доске`);
+    }
+    if (
+      normalized.length >= 2 &&
+      !isIncidentalIsolatedTouch(state.board, cells, placementSet) &&
+      !isValidWord(normalized)
+    ) {
       throw new Error(`«${word}» — неизвестное слово`);
     }
   }
