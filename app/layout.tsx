@@ -16,6 +16,7 @@ const playfair = Playfair_Display({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+const FEEDBACK_FORM_URL = "https://forms.gle/aYxTWXKvxaSqmDNy8";
 
 export const metadata: Metadata = {
   title: "Эрудит — играй с друзьями",
@@ -45,7 +46,7 @@ export default function RootLayout({
       <body
         className={`${nunito.variable} ${playfair.variable} antialiased min-h-screen bg-[var(--color-paper)] text-[var(--color-ink)] font-sans`}
       >
-        <div className="min-h-screen relative overflow-x-hidden">
+        <div className="min-h-screen relative overflow-x-hidden flex flex-col">
           <header className="relative z-10 bg-[var(--color-paper)]">
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <a
@@ -56,9 +57,32 @@ export default function RootLayout({
               </a>
             </div>
           </header>
-          <main className="relative z-10 max-w-6xl mx-auto px-4 py-6">
+          <main className="relative z-10 flex-1 max-w-6xl mx-auto px-4 py-6 w-full">
             {children}
           </main>
+          <footer className="relative z-10 border-t border-[var(--color-border)] bg-[var(--color-paper)]">
+            <div className="max-w-6xl mx-auto px-4 py-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-[var(--color-ink-muted)]">
+              <a
+                href={FEEDBACK_FORM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[var(--color-board)] transition-colors"
+              >
+                Сообщить об ошибке
+              </a>
+              <span className="text-[var(--color-ink-faint)]" aria-hidden="true">
+                ·
+              </span>
+              <a
+                href={FEEDBACK_FORM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[var(--color-board)] transition-colors"
+              >
+                Предложить идею
+              </a>
+            </div>
+          </footer>
         </div>
         <YandexMetrika />
       </body>

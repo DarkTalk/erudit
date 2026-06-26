@@ -436,12 +436,26 @@ export function GameView({
                 <>Вы набрали <span className="font-semibold text-[var(--color-ink)]">{winner.score}</span> очков</>
               )}
             </p>
-            <Link
-              href="/"
-              className="mt-5 inline-flex w-full items-center justify-center px-5 py-3 rounded-xl bg-[var(--color-board)] text-white font-semibold hover:bg-[var(--color-board-hover)] transition-colors"
-            >
-              Играть снова
-            </Link>
+            <div className="mt-5 space-y-3">
+              <Link
+                href="/"
+                className="inline-flex w-full items-center justify-center px-5 py-3 rounded-xl bg-[var(--color-board)] text-white font-semibold hover:bg-[var(--color-board-hover)] transition-colors"
+              >
+                Играть снова
+              </Link>
+              <a
+                href="https://www.donationalerts.com/r/erudit"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-full items-center justify-center px-5 py-3 rounded-xl border border-[var(--color-board)] bg-white text-[var(--color-board)] font-semibold hover:bg-[var(--color-board-light)] transition-colors"
+              >
+                Поддержать проект
+              </a>
+              <p className="text-xs leading-relaxed text-[var(--color-ink-muted)]">
+                Благодаря вам мы сможем дальше поддерживать проект (оплата серверов и кофе разработчику), а вы
+                сможете наслаждаться игрой без рекламы и новыми функциями! Спасибо!
+              </p>
+            </div>
           </div>
         )}
 

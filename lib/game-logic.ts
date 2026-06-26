@@ -692,6 +692,24 @@ function validateCrosswordWordRun(
 }
 
 /**
+ * Кроссворд: четыре соседние клетки квадрата 2×2 не могут быть все заняты буквами.
+ */
+function validateNo2x2LetterBlocks(board: BoardCell[][]): void {
+  for (let row = 0; row < BOARD_SIZE - 1; row++) {
+    for (let col = 0; col < BOARD_SIZE - 1; col++) {
+      if (
+        board[row]![col]!.tile &&
+        board[row]![col + 1]!.tile &&
+        board[row + 1]![col]!.tile &&
+        board[row + 1]![col + 1]!.tile
+      ) {
+        throw new Error("Слова не могут быть вплотную");
+      }
+    }
+  }
+}
+
+/**
  * Кроссворд: проверка хода по правилам пересечения слов.
  */
 function validateCrosswordMove(
@@ -743,6 +761,8 @@ function validateCrosswordMove(
   for (const run of affectedRuns) {
     validateCrosswordWordRun(boardBefore, boardAfter, run, placementSet);
   }
+
+  validateNo2x2LetterBlocks(boardAfter);
 }
 
 function placementsConnectedToExisting(

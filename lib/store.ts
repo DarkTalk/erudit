@@ -4,6 +4,8 @@ import { DEFAULT_GAME_SETTINGS, type GameState, type OpenGameSummary } from "./t
 const GAME_PREFIX = "game:";
 const OPEN_GAMES_KEY = "open_games";
 const TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+/** Открытая комната в ожидании закрывается автоматически через 4 часа */
+const OPEN_GAME_WAIT_TIMEOUT_MS = 4 * 60 * 60 * 1000;
 
 const globalStore = globalThis as typeof globalThis & {
   __eruditMemoryStore?: Map<string, GameState>;
@@ -65,6 +67,27 @@ function parseGameState(data: unknown): GameState | null {
   };
 }
 
+function isExpiredWaitingOpenGame(state: GameState): boolean {
+  return (
+    state.isPublic === true &&
+    state.status === "waiting" &&
+    Date.now() - state.createdAt >= OPEN_GAME_WAIT_TIMEOUT_MS
+  );
+}
+
+async function closeExpiredWaitingOpenGame(id: string): Promise<void> {
+  await unregisterOpenGame(id);
+  await deleteGame(id);
+}
+
+async function expireWaitingOpenGameIfNeeded(
+  state: GameState
+): Promise<GameState | null> {
+  if (!isExpiredWaitingOpenGame(state)) return state;
+  await closeExpiredWaitingOpenGame(state.id);
+  return null;
+}
+
 export async function registerOpenGame(gameId: string): Promise<void> {
   const redis = getRedis();
   if (!redis) {
@@ -96,8 +119,12 @@ export async function listOpenGames(): Promise<OpenGameSummary[]> {
   const games: OpenGameSummary[] = [];
   for (const id of ids) {
     const state = await loadGame(id);
-    if (!state || !state.isPublic || state.status !== "waiting") {
-      if (state && state.status !== "waiting") {
+    if (!state) {
+      await unregisterOpenGame(id);
+      continue;
+    }
+    if (!state.isPublic || state.status !== "waiting") {
+      if (state.status !== "waiting") {
         await unregisterOpenGame(id);
       }
       continue;
@@ -127,10 +154,14 @@ export async function saveGame(state: GameState): Promise<void> {
 export async function loadGame(id: string): Promise<GameState | null> {
   const redis = getRedis();
   if (!redis) {
-    return getMemoryStore().get(id) ?? null;
+    const state = getMemoryStore().get(id) ?? null;
+    if (!state) return null;
+    return expireWaitingOpenGameIfNeeded(state);
   }
   const data = await redis.get<GameState>(gameKey(id));
-  return parseGameState(data);
+  const state = parseGameState(data);
+  if (!state) return null;
+  return expireWaitingOpenGameIfNeeded(state);
 }
 
 export async function deleteGame(id: string): Promise<void> {
@@ -150,7 +181,9 @@ export async function updateGame(
   if (!redis) {
     const current = getMemoryStore().get(id);
     if (!current) throw new Error("Игра не найдена");
-    const updated = updater(current);
+    const valid = await expireWaitingOpenGameIfNeeded(current);
+    if (!valid) throw new Error("Игра не найдена");
+    const updated = updater(valid);
     getMemoryStore().set(id, updated);
     return updated;
   }
