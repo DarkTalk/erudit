@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Nunito, Playfair_Display } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { YandexMetrika } from "@/components/YandexMetrika";
 import "./globals.css";
 
@@ -19,8 +21,9 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
 const FEEDBACK_FORM_URL = "https://forms.gle/aYxTWXKvxaSqmDNy8";
 
 export const metadata: Metadata = {
-  title: "Эрудит — играй с друзьями",
-  description: "Онлайн-версия настольной игры Эрудит для компании друзей",
+  title: "Эрудит — играть онлайн",
+  description:
+    "Бесплатная онлайн-версия настольной игры Эрудит: с друзьями, с ботом, с незнакомцами или за одним экраном.",
   ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
   icons: {
     icon: [
@@ -85,6 +88,8 @@ export default function RootLayout({
           </footer>
         </div>
         <YandexMetrika />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
